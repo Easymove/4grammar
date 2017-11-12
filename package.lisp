@@ -1,5 +1,5 @@
 ;;;; package.lisp
 
 (defpackage #:4grammar
-  (:use #:cl #:smug #:alexandria))
+  (:use #:cl #:smug #:alexandria #:hunchentoot #:anaphora))
 

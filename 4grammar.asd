@@ -7,10 +7,14 @@
   :depends-on (#:hunchentoot
                #:smug
                #:anaphora
-               #:alexandria)
+               #:alexandria
+               #:drakma
+               #:yason)
   :serial t
   :components ((:file "package")
+               (:file "server")
                (:file "domain" :depends-on ("package"))
                (:file "parser" :depends-on ("domain"))
-               (:file "4grammar" :depends-on ("parser"))))
+               (:file "queries" :depends-on ("parser"))
+               (:file "4grammar" :depends-on ("queries"))))
 
