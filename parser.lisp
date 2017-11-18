@@ -1,16 +1,25 @@
 (in-package #:4grammar)
 
-(defparameter *default-res-fn* #'list)
-
 (defparameter +whitespace+ (list #\space #\newline #\tab))
 (defparameter +literal-quote+ #\')
 (defparameter +literal-escape+ #\\)
-(defparameter +rule-delimiter+ ":")
-(defparameter +rule-end+ ";")
+(defparameter +rule-delimiter+ #\:)
+(defparameter +statement-end+ #\;)
 (defparameter +alternative+ #\|)
 (defparameter +complex-entity-open+ #\()
 (defparameter +complex-entity-close+ #\))
+(defparameter +range-delimiter+ "..")
+(defparameter +set-entity-open+ #\[)
+(defparameter +set-entity-close+ #\])
+(defparameter +negation+ #\~)
+(defparameter +line-comment-start+ "//")
+(defparameter +block-comment-open+ "/*")
+(defparameter +block-comment-close+ "*/")
+(defparameter +action-open+ #\{)
+(defparameter +action-close+ #\})
+(defparameter +predicate-action+ #\?)
 
+(defparameter *default-res-fn* #'list)
 
 ;;; -----------------------------------------------------------------------------
 ;;; grammar specific functions
@@ -29,14 +38,10 @@
            (.identity (apply res-fn x xs)))
          (.identity nil)))
 
-(defun .one-or-more (parser &optional (res-fn *default-res-fn*))
-  (.plus (.let* ((x parser)
-                 (xs (.zero-or-more parser)))
-           (.identity (apply res-fn x xs)))
-         (.identity nil)))
-
 (defun .whitespace (&optional result-type)
-  (.first (.map result-type (.is (rcurry #'member +whitespace+)))))
+  (.first (.zero-or-more
+           (.or (.map result-type (.is (rcurry #'member +whitespace+)))
+                (.comment result-type)))))
 
 (defun .identifier ()
   (.map 'string (.is #'word-constituent-p)))
@@ -51,6 +56,10 @@
           (_ (.char= +literal-quote+)))
     (.identity string)))
 
+(defun .with-ws (parser)
+  (.progn (.optional (.whitespace))
+          parser))
+
 ;;; -----------------------------------------------------------------------------
 ;;; general parsers
 ;;; -----------------------------------------------------------------------------
@@ -60,70 +69,221 @@
 (defun parse (parser string)
   (funcall parser string))
 
+
+
 (defun .grammar ()
-  (.first (.zero-or-more (.rule) (lambda (&rest rules) (make-instance 'grammar :rules rules)))))
+  (.let* ((name (.grammar-statement))
+          (rules (.first (.zero-or-more (.statement))))
+          (_ (.optional (.whitespace))))
+    (.identity (make-instance 'grammar
+                              :name name
+                              :rules rules))))
+
+
+(defun .grammar-statement ()
+  (.let* ((_ (.with-ws (.string= "grammar")))
+          (name (.non-terminal))
+          (_ (.with-ws (.char= +statement-end+))))
+    (.identity name)))
+
+
+(defun .statement ()
+  (.let* ((res (.with-ws (.plus (.rule)
+                                (.alias))))
+          (_ (.with-ws (.char= +statement-end+))))
+    (.identity res)))
+
+
+(defun .alias ()
+  (.let* ((_ (.with-ws (.string= "fragment"))))
+    (.rule-aux (lambda (name alternatives)
+                 (make-instance 'alias
+                                :name name
+                                :alternatives alternatives)))))
+
 
 (defun .rule ()
-  (.let* ((_ (.optional (.whitespace)))
-          (name (.non-terminal))
-          (_ (.optional (.whitespace)))
-          (_ (.string= +rule-delimiter+))
-          (_ (.optional (.whitespace)))
-          (commands (.commands-list))
-          (_ (.optional (.whitespace)))
-          (_ (.string= +rule-end+)))
-    (.identity (make-instance 'rule
-                              :name name
-                              :commands commands))))
+  (.rule-aux))
 
-(defun .commands-list ()
-  (.first
-   (.let* ((x (.command))
-           (xs (.plus (.and (.char= +alternative+)
-                            (.commands-list))
-                      (.identity nil))))
-     (.identity (apply #'list x xs)))))
 
-(defun .command ()
-  (.first (.zero-or-more (.entity) (lambda (&rest entities) (make-instance 'command :entities entities)))))
+(defun .rule-aux (&optional (make-fn (lambda (name alternatives)
+                                       (make-instance 'rule
+                                                      :name name
+                                                      :alternatives alternatives))))
+  (.let* ((name (.non-terminal))
+          (_ (.with-ws (.char= +rule-delimiter+)))
+          (alternatives (.alternatives-list)))
+    (.identity (funcall make-fn name alternatives))))
+
+
+(defun .alternatives-list ()
+  (.let* ((x (.alternative))
+          (xs (.plus (.and (.with-ws (.char= +alternative+))
+                           (.alternatives-list))
+                     (.identity nil))))
+    (.identity (apply #'list x xs))))
+
+
+(defun .alternative ()
+  (.let* ((entities (.zero-or-more (.entity))))
+    (.identity (make-instance 'alternative
+                              :entities entities))))
+
 
 (defun .entity ()
-  (.or (.simple-entity)
-       (.complex-entity)))
+  (.or (.wildcard-entity)
+       (.predicate-entity)
+       (.action-entity)
+       (.set-entity)
+       (.complex-entity)
+       (.range-entity)
+       (.simple-entity)))
+
+
+(defun .wildcard-entity ()
+  (.let* ((_ (.with-ws (.char= #\.)))
+          (mod (.mod)))
+    (.identity (make-instance 'wildcard-entity
+                              :mod mod))))
+
+(defun .predicate-entity ()
+  (.let* ((_ (.with-ws (.char= +action-open+)))
+          (island (.map 'string (.item)))
+          (_ (.char= +action-close+))
+          (_ (.char= +predicate-action+)))
+    (.identity (make-instance 'predicate-entity
+                              :island island))))
+
+(defun .action-entity ()
+  (.let* ((_ (.with-ws (.char= +action-open+)))
+          (island (.map 'string (.item)))
+          (_ (.char= +action-close+)))
+    (.identity (make-instance 'action-entity
+                              :island island))))
 
 (defun .simple-entity ()
-  (.let* ((_ (.optional (.whitespace)))
+  (.let* ((negated? (.optional (.negation)))
           (value (.or (.terminal)
                       (.non-terminal)))
-          (_ (.optional (.whitespace)))
           (mod (.optional (.mod))))
     (.identity (make-instance 'simple-entity
                               :value value
-                              :mod mod))))
+                              :mod mod
+                              :negated? (not (null negated?))))))
+
 
 (defun .complex-entity ()
-  (.let* ((_ (.optional (.whitespace)))
-          (_ (.char= +complex-entity-open+))
-          (entities (.zero-or-more (.entity)))
-          (_ (.optional (.whitespace)))
-          (_ (.char= +complex-entity-close+))
-          (_ (.optional (.whitespace)))
+  (.let* ((negated? (.optional (.negation)))
+          (_ (.with-ws (.char= +complex-entity-open+)))
+          (alternatives (.alternatives-list))
+          (_ (.with-ws (.char= +complex-entity-close+)))
           (mod (.optional (.mod))))
     (.identity (make-instance 'complex-entity
-                              :value entities
-                              :mod mod))))
+                              :value alternatives
+                              :mod mod
+                              :negated? (not (null negated?))))))
+
+
+(defun .range-entity ()
+  (.let* ((negated? (.optional (.negation)))
+          (range-from (.with-ws (.literal)))
+          (_ (.with-ws (.string= +range-delimiter+)))
+          (range-to (.with-ws (.literal)))
+          (mod (.optional (.mod))))
+    (.identity (make-instance 'range-entity
+                              :from range-from
+                              :to range-to
+                              :mod mod
+                              :negated? (not (null negated?))))))
+
+
+(defun .set-entity ()
+  (.let* ((negated? (.optional (.negation)))
+          (_ (.with-ws (.char= +set-entity-open+)))
+          (set (.set))
+          (_ (.char= +set-entity-close+))
+          (mod (.mod)))
+    (.identity (make-instance 'set-entity
+                              :set set
+                              :mod mod
+                              :negated? (not (null negated?))))))
+
+
+(defun .set ()
+  (.zero-or-more
+   (.and
+    (.not (.char= +set-entity-close+))
+    (.or (.range)
+         (.let* ((ch1 (.char)))
+           (.identity (list ch1)))))
+   #'append))
+
+
+(defun .range ()
+  (.let* ((ch1 (.char))
+          (_ (.char= #\-))
+          (ch2 (.char)))
+    (.identity (expand-set ch1 ch2))))
+
+
+(defun expand-set (ch1 ch2)
+  ;; expand only ascii ranges
+  (if (and (= (length ch1) 1)
+           (= (length ch2) 1))
+      (loop
+         :for i :from (char-code (char ch1 0)) :to (char-code (char ch2 0))
+         :collect (code-char i))
+      (list ch1 ch2)))
+
+
+(defun .char ()
+  (.or (.quoted-char)
+       (.let* ((ch1 (.item)))
+         (.identity (coerce (list ch1) 'string)))))
+
+
+(defun .quoted-char ()
+  (.let* ((slash (.char= #\\))
+          (ch1 (.item)))
+    (.identity (coerce (list slash ch1) 'string))))
+
 
 (defun .mod ()
-  (.or (.char= #\?)
-       (.char= #\+)
-       (.char= #\*)))
+  (.with-ws
+   (.or (.char= #\?)
+        (.char= #\+)
+        (.char= #\*))))
+
+
+(defun .negation ()
+  (.with-ws (.char= +negation+)))
+
 
 (defun .terminal ()
-  (.let* ((val (.literal)))
+  (.let* ((val (.with-ws (.literal))))
     (.identity (make-instance 'terminal
                               :value val))))
 
 (defun .non-terminal ()
-  (.let* ((val (.first (.identifier))))
+  (.let* ((val (.with-ws (.first (.identifier)))))
     (.identity (make-instance 'non-terminal
                               :value val))))
+
+
+(defun .comment (&optional result-type)
+  (.or (.line-comment result-type)
+       (.block-comment result-type)))
+
+
+(defun .line-comment (&optional result-type)
+  (.let* ((_ (.string= +line-comment-start+))
+          (content (.map result-type (.is-not (curry #'char= #\NewLine))))
+          (_ (.char= #\Newline)))
+    (.identity content)))
+
+
+(defun .block-comment (&optional result-type)
+  (.let* ((_ (.string= +block-comment-open+))
+          (content (.map result-type (.item)))
+          (_ (.string= +block-comment-close+)))
+    (.identity content)))
