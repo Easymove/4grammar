@@ -1,8 +1,44 @@
 (in-package :4grammar)
 
+(defun parse-test ()
+  (print (parse-grammar *grammar*)))
 
-(defparameter *grammar* "
- grammar Abnf;
+(defparameter *abnf-grammar* "/*
+BSD License
+Copyright (c) 2013, Rainer Schuster
+All rights reserved.
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+3. Neither the name of Rainer Schuster nor the names of its contributors
+   may be used to endorse or promote products derived from this software
+   without specific prior written permission.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+\"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ABNF grammar derived from:
+    http://tools.ietf.org/html/rfc5234
+    Augmented BNF for Syntax Specifications: ABNF
+    January 2008
+    http://tools.ietf.org/html/rfc7405
+    Case-Sensitive String Support in ABNF
+    December 2014
+Terminal rules mainly created by ANTLRWorks 1.5 sample code.
+ */
+grammar Abnf;
 
 // Note: Whitespace handling not as strict as in the specification.
 
@@ -81,6 +117,17 @@ INT
    : '0' .. '9'+
    ;
 
+
+COMMENT
+   : ';' ~ ( '\\n' | '\\r' )* '\\r'? '\\n' -> channel ( HIDDEN )
+   ;
+
+
+WS
+   : ( ' ' | '\\t' | '\\r' | '\\n' ) -> channel ( HIDDEN )
+   ;
+
+
 STRING
    : ( '%s' | '%i' )? '\"' ( ~ '\"' )* '\"'
    ;
@@ -101,8 +148,10 @@ fragment DIGIT
 // > So the definition of HEXDIG already allows for both upper and lower case (or a mixture).
 fragment HEX_DIGIT
    : ( '0' .. '9' | 'a' .. 'f' | 'A' .. 'F' )
-;
-")
+;"                                      ;
+
+"From: https://github.com/antlr/grammars-v4/blob/master/abnf/Abnf.g4")
+
 
 (defparameter *tests* nil)
 
@@ -113,13 +162,17 @@ fragment HEX_DIGIT
           (push ',name *tests*)))
 
 (defun run-tests ()
-  (loop
-     :for test :in *tests*
-     :do (format t "~A"
-                 (if (handler-case (funcall test)
-                       (error (e) (declare (ignorable e)) nil))
-                     "."
-                     "x"))))
+  (let ((failed-tests))
+    (loop
+       :for test :in *tests*
+       :do (format t "~A"
+                   (if (handler-case (funcall test)
+                         (error (e) (declare (ignorable e)) nil))
+                       "."
+                       (progn
+                         (push test failed-tests)
+                         "x"))))
+    (format t "~%~@[Failed tests:~%~{~S~%~}~]" failed-tests)))
 
 (defgeneric object-equal (obj1 obj2))
 
@@ -155,7 +208,7 @@ fragment HEX_DIGIT
 
 
 (define-parse-test test.parse.simple-entity.1
-    ("'hey'+" (.simple-entity))
+    ("'hey'+" (.entity))
     (res)
   (object-equal (make-instance 'simple-entity
                                :negated? nil
@@ -164,9 +217,19 @@ fragment HEX_DIGIT
                                                      :value "hey"))
                 res))
 
+(define-parse-test test.parse.simple-entity.2
+    ("~ 'a'" (.entity))
+    (res)
+  (object-equal (make-instance 'simple-entity
+                               :negated? t
+                               :mod nil
+                               :value (make-instance 'terminal
+                                                     :value "a"))
+                res))
+
 (define-parse-test test.parse.line-comment.1
     ("// asd asd asd asd
-'hey'" (.simple-entity))
+'hey'" (.entity))
     (res)
   (object-equal (make-instance 'simple-entity
                                :negated? nil
@@ -176,7 +239,7 @@ fragment HEX_DIGIT
                 res))
 
 (define-parse-test test.parse.block-comment.1
-    ("/*asd */ 'hey'" (.simple-entity))
+    ("/*asd */ 'hey'" (.entity))
     (res)
   (object-equal (make-instance 'simple-entity
                                :negated? nil
@@ -186,7 +249,7 @@ fragment HEX_DIGIT
                 res))
 
 (define-parse-test test.parse.complex-entity.1
-    ("( 'hey'? yo* )?" (.complex-entity))
+    ("( 'hey'? yo* )?" (.entity))
     (res)
   (object-equal (make-instance 'complex-entity
                                :negated? nil
@@ -210,7 +273,7 @@ fragment HEX_DIGIT
                 res))
 
 (define-parse-test test.parse.complex-entity.2
-    ("( 'hey' | yo )+" (.complex-entity))
+    ("( 'hey' | yo )+" (.entity))
     (res)
   (object-equal (make-instance 'complex-entity
                                :negated? nil
@@ -236,22 +299,100 @@ fragment HEX_DIGIT
                                                                      :value "yo"))))))
                 res))
 
+(define-parse-test test.parse.complex-entity.3
+    ("~( 'A' | 'B' )*" (.entity))
+    (res)
+  (object-equal (make-instance 'complex-entity
+                               :negated? t
+                               :mod #\*
+                               :value (list
+                                       (make-instance
+                                        'alternative
+                                        :entities
+                                        (list (make-instance
+                                               'simple-entity
+                                               :negated? nil
+                                               :mod nil
+                                               :value (make-instance 'terminal
+                                                                     :value "A"))))
+                                       (make-instance
+                                        'alternative
+                                        :entities
+                                        (list (make-instance
+                                               'simple-entity
+                                               :negated? nil
+                                               :mod nil
+                                               :value (make-instance 'terminal
+                                                                     :value "B"))))))
+                res))
+
 (define-parse-test test.parse.set-entity.1
-    ("[abc]" (.set-entity))
+    ("[abc]" (.entity))
     (res)
   (object-equal (make-instance 'set-entity
                                :negated? nil
                                :mod nil
-                               :set (list #\a #\b #\c))
+                               :set (list "a" "b" "c"))
                 res))
 
 
+(define-parse-test test.parse.set-entity.2
+    ("[a-c0-2]" (.entity))
+    (res)
+  (object-equal (make-instance 'set-entity
+                               :negated? nil
+                               :mod nil
+                               :set (list "a" "b" "c" "0" "1" "2"))
+                res))
+
+(define-parse-test test.parse.set-entity.3
+    ("[\\n\\r]" (.entity))
+    (res)
+  (object-equal (make-instance 'set-entity
+                               :negated? nil
+                               :mod nil
+                               :set (list "\\n" "\\r"))
+                res))
+
+(define-parse-test test.parse.set-entity.4
+    ("~[\\n\\r]+" (.entity))
+    (res)
+  (object-equal (make-instance 'set-entity
+                               :negated? t
+                               :mod #\+
+                               :set (list "\\n" "\\r"))
+                res))
+
 (define-parse-test test.parse.range-entity.1
-    ("A .. B" (.range-entity))
+    ("'A' .. 'B'" (.entity))
     (res)
   (object-equal (make-instance 'range-entity
                                :negated? nil
                                :mod nil
-                               :from #\A
-                               :to #\B)
+                               :from "A"
+                               :to "B"
+                               :set (list "A" "B"))
+                res))
+
+
+(define-parse-test test.parse.wildcard-entity.1
+    ("." (.entity))
+    (res)
+  (object-equal (make-instance 'Wildcard-entity
+                               :mod nil)
+                res))
+
+
+(define-parse-test test.parse.action-entity.1
+    ("{ SomeAction.here() }" (.entity))
+    (res)
+  (object-equal (make-instance 'action-entity
+                               :island " SomeAction.here() ")
+                res))
+
+(define-parse-test test.parse.predicate-entity.1
+    ("{ SomePredicate.here() }?" (.entity))
+    (res)
+  (object-equal (make-instance 'predicate-entity
+                               :island " SomePredicate.here() ")
                 res))
