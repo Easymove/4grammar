@@ -8,16 +8,17 @@
 (defparameter +alternative+ #\|)
 (defparameter +complex-entity-open+ #\()
 (defparameter +complex-entity-close+ #\))
-(defparameter +range-delimiter+ "..")
 (defparameter +set-entity-open+ #\[)
 (defparameter +set-entity-close+ #\])
 (defparameter +negation+ #\~)
-(defparameter +line-comment-start+ "//")
-(defparameter +block-comment-open+ "/*")
-(defparameter +block-comment-close+ "*/")
 (defparameter +action-open+ #\{)
 (defparameter +action-close+ #\})
 (defparameter +predicate-action+ #\?)
+(defparameter +range-delimiter+ "..")
+
+(defparameter +line-comment-start+ "//")
+(defparameter +block-comment-open+ "/*")
+(defparameter +block-comment-close+ "*/")
 
 (defparameter *default-res-fn* #'list)
 
@@ -33,15 +34,15 @@
 ;;; auxiliary parsers
 ;;; -----------------------------------------------------------------------------
 (defun .zero-or-more (parser &optional (res-fn *default-res-fn*))
-  (.plus (.let* ((x parser)
-                 (xs (.zero-or-more parser)))
-           (.identity (apply res-fn x xs)))
-         (.identity nil)))
+  (.first
+   (.plus (.let* ((x parser)
+                  (xs (.zero-or-more parser)))
+            (.identity (apply res-fn x xs)))
+          (.identity nil))))
 
 (defun .whitespace (&optional result-type)
-  (.first (.zero-or-more
-           (.or (.map result-type (.is (rcurry #'member +whitespace+)))
-                (.comment result-type)))))
+  (.or (.first (.map result-type (.is (rcurry #'member +whitespace+))))
+       (.comment)))
 
 (defun .identifier ()
   (.map 'string (.is #'word-constituent-p)))
@@ -57,8 +58,9 @@
     (.identity string)))
 
 (defun .with-ws (parser)
-  (.progn (.optional (.whitespace))
-          parser))
+  (.let* ((_ (.zero-or-more (.whitespace)))
+          (res parser))
+    (.identity res)))
 
 ;;; -----------------------------------------------------------------------------
 ;;; general parsers
@@ -73,8 +75,8 @@
 
 (defun .grammar ()
   (.let* ((name (.grammar-statement))
-          (rules (.first (.zero-or-more (.statement))))
-          (_ (.optional (.whitespace))))
+          (rules (.zero-or-more (.statement)))
+          (_ (.whitespace)))
     (.identity (make-instance 'grammar
                               :name name
                               :rules rules))))
@@ -142,7 +144,7 @@
 
 (defun .wildcard-entity ()
   (.let* ((_ (.with-ws (.char= #\.)))
-          (mod (.mod)))
+          (mod (.optional (.mod))))
     (.identity (make-instance 'wildcard-entity
                               :mod mod))))
 
@@ -193,6 +195,7 @@
     (.identity (make-instance 'range-entity
                               :from range-from
                               :to range-to
+                              :set (expand-set range-from range-to)
                               :mod mod
                               :negated? (not (null negated?))))))
 
@@ -202,7 +205,7 @@
           (_ (.with-ws (.char= +set-entity-open+)))
           (set (.set))
           (_ (.char= +set-entity-close+))
-          (mod (.mod)))
+          (mod (.optional (.mod))))
     (.identity (make-instance 'set-entity
                               :set set
                               :mod mod
@@ -232,7 +235,7 @@
            (= (length ch2) 1))
       (loop
          :for i :from (char-code (char ch1 0)) :to (char-code (char ch2 0))
-         :collect (code-char i))
+         :collect (coerce (list (code-char i)) 'string))
       (list ch1 ch2)))
 
 

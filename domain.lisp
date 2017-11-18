@@ -71,7 +71,10 @@
          :type char)
    (to :accessor range-to
        :initarg :to
-       :type char)))
+       :type char)
+   (set :accessor range-set
+        :initarg :set
+        :type list)))
 
 (defclass complex-entity (negatable-entity-base)
   ((value :accessor entity-value
@@ -102,10 +105,10 @@
   (format stream "#<~A~@[~A~]: ~A>" (type-of term) (entity-mod term) (entity-value term)))
 
 (defmethod print-object ((term negatable-entity-base) stream)
-  (format stream "#<~A~@[~A~]: ~@[not~] ~A>" (type-of term) (entity-mod term) (entity-negated? term) (entity-value term)))
+  (format stream "#<~A~@[~A~]: ~@[~A~] ~A>" (type-of term) (entity-mod term) (entity-negated? term) (entity-value term)))
 
 (defmethod print-object ((term set-entity) stream)
-  (format stream "#<~A~@[~A~]: ~@[not~] ~A>" (type-of term) (entity-mod term) (entity-negated? term) (entity-set term)))
+  (format stream "#<~A~@[~A~]: ~@[~A~] ~A>" (type-of term) (entity-mod term) (entity-negated? term) (entity-set term)))
 
 (defmethod print-object ((term wildcard-entity) stream)
   (format stream "#<~A~@[~A~]>" (type-of term) (entity-mod term)))
