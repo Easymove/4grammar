@@ -16,5 +16,6 @@
                (:file "domain" :depends-on ("package"))
                (:file "parser" :depends-on ("domain"))
                (:file "queries" :depends-on ("parser"))
-               (:file "4grammar" :depends-on ("queries"))))
+               (:file "4grammar" :depends-on ("queries"))
+               (:file "tests" :depends-on ("4grammar"))))
 
