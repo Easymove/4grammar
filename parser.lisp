@@ -47,7 +47,7 @@
        (.comment)))
 
 (defun .identifier ()
-  (.and (.not (.string= +redirection-sign+))
+  (.and (.not (.string-eq +redirection-sign+))
         (.map 'string (.is #'word-constituent-p))))
 
 (defun .literal ()
@@ -67,6 +67,14 @@
 
 (defun token-name-p (string)
   (every #'upper-case-p string))
+
+(defun .string-eq (string)
+  ;; maybe faster than default .string=
+  (if (string= string "")
+      (.identity nil)
+      (.and (.char= (aref string 0))
+            (.string-eq (subseq string 1))
+            (.identity string))))
 
 (defun .trash ()
   (.let* ((string (.with-ws
@@ -98,7 +106,7 @@
 
 
 (defun .grammar-statement ()
-  (.let* ((_ (.with-ws (.string= "grammar")))
+  (.let* ((_ (.with-ws (.string-eq "grammar")))
           (name (.with-ws (.identifier)))
           (_ (.with-ws (.char= +statement-end+))))
     (.identity name)))
@@ -112,7 +120,7 @@
 
 
 (defun .alias ()
-  (.let* ((_ (.with-ws (.string= "fragment"))))
+  (.let* ((_ (.with-ws (.string-eq "fragment"))))
     (.rule-aux (lambda (name channel alternatives)
                  (make-instance 'alias
                                 :name name
@@ -139,13 +147,13 @@
 
 
 (defun .channel ()
-  (.let* ((_ (.with-ws (.string= +redirection-sign+)))
+  (.let* ((_ (.with-ws (.string-eq +redirection-sign+)))
           (channel (.channel-name)))
     (.identity channel)))
 
 
 (defun .channel-name ()
-  (.or (.let* ((_ (.with-ws (.string= +channel+)))
+  (.or (.let* ((_ (.with-ws (.string-eq +channel+)))
                (_ (.with-ws (.char= +complex-entity-open+)))
                (channel (.with-ws (.identifier)))
                (_ (.with-ws (.char= +complex-entity-close+))))
@@ -226,7 +234,7 @@
 (defun .range-entity ()
   (.let* ((negated? (.optional (.negation)))
           (range-from (.with-ws (.literal)))
-          (_ (.with-ws (.string= +range-delimiter+)))
+          (_ (.with-ws (.string-eq +range-delimiter+)))
           (range-to (.with-ws (.literal)))
           (mod (.optional (.mod))))
     (.identity (make-instance 'range-entity
@@ -318,16 +326,16 @@
 
 
 (defun .line-comment (&optional result-type)
-  (.let* ((_ (.string= +line-comment-start+))
-          (content (.map result-type (.is-not (curry #'char= #\NewLine))))
-          (_ (.char= #\Newline)))
-    (.identity content)))
+  (.let* ((_ (.string-eq +line-comment-start+))
+          (content (.read-line nil "")))
+    (.identity (when result-type
+                 (coerce content result-type)))))
 
 
 (defun .block-comment (&optional result-type)
-  (.let* ((_ (.string= +block-comment-open+))
+  (.let* ((_ (.string-eq +block-comment-open+))
           (content (.map result-type
-                         (.and (.not (.string= +block-comment-close+))
+                         (.and (.not (.string-eq +block-comment-close+))
                                (.item))))
-          (_ (.string= +block-comment-close+)))
+          (_ (.string-eq +block-comment-close+)))
     (.identity content)))
