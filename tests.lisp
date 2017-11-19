@@ -1,8 +1,5 @@
 (in-package :4grammar)
 
-(defun parse-test ()
-  (print (parse-grammar *grammar*)))
-
 (defparameter *abnf-grammar* "/*
 BSD License
 Copyright (c) 2013, Rainer Schuster
@@ -151,6 +148,9 @@ fragment HEX_DIGIT
 ;"                                      ;
 
 "From: https://github.com/antlr/grammars-v4/blob/master/abnf/Abnf.g4")
+
+(defun parse-test ()
+  (print (parse-grammar *abnf-grammar*)))
 
 
 (defparameter *tests* nil)
@@ -395,4 +395,58 @@ fragment HEX_DIGIT
     (res)
   (object-equal (make-instance 'predicate-entity
                                :island " SomePredicate.here() ")
+                res))
+
+(define-parse-test test.parse.channel.1
+    ("a : b | c -> skip ;" (.rule))
+    (res)
+  (object-equal (make-instance 'rule
+                               :channel "skip"
+                               :alternatives (list
+                                              (make-instance
+                                               'alternative
+                                               :entities
+                                               (list (make-instance
+                                                      'simple-entity
+                                                      :negated? nil
+                                                      :mod nil
+                                                      :value (make-instance 'non-terminal
+                                                                            :value "b"))))
+                                              (make-instance
+                                               'alternative
+                                               :entities
+                                               (list (make-instance
+                                                      'simple-entity
+                                                      :negated? nil
+                                                      :mod nil
+                                                      :value (make-instance 'non-terminal
+                                                                            :value "c")))))
+                               :name "a")
+                res))
+
+(define-parse-test test.parse.channel.2
+    ("a : b | c -> channel ( HIDDEN ) ;" (.rule))
+    (res)
+  (object-equal (make-instance 'rule
+                               :channel "HIDDEN"
+                               :alternatives (list
+                                              (make-instance
+                                               'alternative
+                                               :entities
+                                               (list (make-instance
+                                                      'simple-entity
+                                                      :negated? nil
+                                                      :mod nil
+                                                      :value (make-instance 'non-terminal
+                                                                            :value "b"))))
+                                              (make-instance
+                                               'alternative
+                                               :entities
+                                               (list (make-instance
+                                                      'simple-entity
+                                                      :negated? nil
+                                                      :mod nil
+                                                      :value (make-instance 'non-terminal
+                                                                            :value "c")))))
+                               :name "a")
                 res))

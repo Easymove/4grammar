@@ -17,7 +17,10 @@
          :type non-terminal)
    (alternatives :accessor rule-alternatives
                  :initarg :alternatives
-                 :type list)))
+                 :type list)
+   (channel :accessor rule-channel
+            :initarg :channel
+            :type keyword)))
 
 (defclass alias (rule)
   ())

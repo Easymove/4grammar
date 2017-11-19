@@ -15,6 +15,8 @@
 (defparameter +action-close+ #\})
 (defparameter +predicate-action+ #\?)
 (defparameter +range-delimiter+ "..")
+(defparameter +redirection-sign+ "->")
+(defparameter +channel+ "channel")
 
 (defparameter +line-comment-start+ "//")
 (defparameter +block-comment-open+ "/*")
@@ -45,7 +47,8 @@
        (.comment)))
 
 (defun .identifier ()
-  (.map 'string (.is #'word-constituent-p)))
+  (.and (.not (.string= +redirection-sign+))
+        (.map 'string (.is #'word-constituent-p))))
 
 (defun .literal ()
   (.let* ((_ (.char= +literal-quote+))
@@ -84,7 +87,7 @@
 
 (defun .grammar-statement ()
   (.let* ((_ (.with-ws (.string= "grammar")))
-          (name (.non-terminal))
+          (name (.with-ws (.identifier)))
           (_ (.with-ws (.char= +statement-end+))))
     (.identity name)))
 
@@ -98,9 +101,10 @@
 
 (defun .alias ()
   (.let* ((_ (.with-ws (.string= "fragment"))))
-    (.rule-aux (lambda (name alternatives)
+    (.rule-aux (lambda (name channel alternatives)
                  (make-instance 'alias
                                 :name name
+                                :channel channel
                                 :alternatives alternatives)))))
 
 
@@ -108,14 +112,31 @@
   (.rule-aux))
 
 
-(defun .rule-aux (&optional (make-fn (lambda (name alternatives)
+(defun .rule-aux (&optional (make-fn (lambda (name channel alternatives)
                                        (make-instance 'rule
                                                       :name name
+                                                      :channel channel
                                                       :alternatives alternatives))))
-  (.let* ((name (.non-terminal))
+  (.let* ((name (.with-ws (.identifier)))
           (_ (.with-ws (.char= +rule-delimiter+)))
-          (alternatives (.alternatives-list)))
-    (.identity (funcall make-fn name alternatives))))
+          (alternatives (.alternatives-list))
+          (channel (.optional (.channel))))
+    (.identity (funcall make-fn name channel alternatives))))
+
+
+(defun .channel ()
+  (.let* ((_ (.with-ws (.string= +redirection-sign+)))
+          (channel (.channel-name)))
+    (.identity channel)))
+
+
+(defun .channel-name ()
+  (.or (.let* ((_ (.with-ws (.string= +channel+)))
+               (_ (.with-ws (.char= +complex-entity-open+)))
+               (channel (.with-ws (.identifier)))
+               (_ (.with-ws (.char= +complex-entity-close+))))
+         (.identity channel))
+       (.with-ws (.identifier))))
 
 
 (defun .alternatives-list ()
