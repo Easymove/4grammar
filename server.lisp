@@ -10,6 +10,8 @@
   (setf *server* (make-instance '4grammar-server
                                 :name "4grammar-server"
                                 :port *port*))
+  (setf *storage* (default-storage))
+  (open-storage)
   (start *server*))
 
 (defun stop-server ()

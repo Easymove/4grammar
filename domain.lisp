@@ -165,7 +165,7 @@
   (mapc function (alternative-entities node)))
 
 (defmethod map-members ((node complex-entity) function)
-  (mapc function (entity-value node)))
+  (mapc function (entity-alternatives node)))
 
 (defmethod map-members ((node simple-entity) function)
   (funcall function (entity-value node)))

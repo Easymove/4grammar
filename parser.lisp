@@ -89,7 +89,8 @@
 ;;; general parsers
 ;;; -----------------------------------------------------------------------------
 (defun parse-grammar (string)
-  (parse (.grammar) string))
+  (destructuring-bind (res . str) (first (parse (.grammar) string))
+    (values res str)))
 
 (defun parse (parser string)
   (funcall parser string))

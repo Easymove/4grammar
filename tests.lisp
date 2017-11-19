@@ -1,165 +1,11 @@
 (in-package :4grammar)
 
-(defparameter *abnf-grammar* "
-/*
-BSD License
-Copyright (c) 2013, Rainer Schuster
-All rights reserved.
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions
-are met:
-1. Redistributions of source code must retain the above copyright
-   notice, this list of conditions and the following disclaimer.
-2. Redistributions in binary form must reproduce the above copyright
-   notice, this list of conditions and the following disclaimer in the
-   documentation and/or other materials provided with the distribution.
-3. Neither the name of Rainer Schuster nor the names of its contributors
-   may be used to endorse or promote products derived from this software
-   without specific prior written permission.
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-\"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-ABNF grammar derived from:
-http://tools.ietf.org/html/rfc5234
-Augmented BNF for Syntax Specifications: ABNF
-January 2008
-http://tools.ietf.org/html/rfc7405
-Case-Sensitive String Support in ABNF
-December 2014
-Terminal rules mainly created by ANTLRWorks 1.5 sample code.
-*/
-grammar Abnf;
-
-// Note: Whitespace handling not as strict as in the specification.
-
-rulelist
-: rule_* EOF
-   ;
-
-rule_
-: ID ( '=' | '=/' ) elements
-   ;
-
-elements
-   : alternation
-   ;
-
-alternation
-   : concatenation ( '/' concatenation )*
-   ;
-
-concatenation
-   : repetition ( repetition )*
-   ;
-
-repetition
-   : repeat? element
-   ;
-
-repeat
-   : INT | ( INT? '*' INT? )
-   ;
-
-   element
-   : ID | group | option | STRING | NumberValue | ProseValue
-   ;
-
-group
-   : '(' alternation ')'
-   ;
-
-option
-   : '[' alternation ']'
-   ;
-
-
-NumberValue
-   : '%' ( BinaryValue | DecimalValue | HexValue )
-   ;
-
-
-fragment BinaryValue
-   : 'b' BIT+ ( ( '.' BIT+ )+ | ( '-' BIT+ ) )?
-   ;
-
-
-fragment DecimalValue
-: 'd' DIGIT+ ( ( '.' DIGIT+ )+ | ( '-' DIGIT+ ) )?
-   ;
-
-
-fragment HexValue
-   : 'x' HEX_DIGIT+ ( ( '.' HEX_DIGIT+ )+ | ( '-' HEX_DIGIT+ ) )?
-   ;
-
-
-ProseValue
-: '<' ( ~ '>' )* '>'
-   ;
-
-
-ID
-: ( 'a' .. 'z' | 'A' .. 'Z' ) ( 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '-' )*
-   ;
-
-
-INT
-: '0' .. '9'+
-   ;
-
-
-COMMENT
-: ';' ~ ( '\\n' | '\\r' )* '\\r'? '\\n' -> channel ( HIDDEN )
-   ;
-
-
-WS
-: ( ' ' | '\\t' | '\\r' | '\\n' ) -> channel ( HIDDEN )
-   ;
-
-
-STRING
-   : ( '%s' | '%i' )? '\"' ( ~ '\"' )* '\"'
-   ;
-
-
-fragment BIT
-: '0' .. '1'
-   ;
-
-
-fragment DIGIT
-: '0' .. '9'
-   ;
-
-
-// Note: from the RFC errata (http://www.rfc-editor.org/errata_search.php?rfc=5234&eid=4040):
-// > ABNF strings are case insensitive and the character set for these strings is US-ASCII.
-// > So the definition of HEXDIG already allows for both upper and lower case (or a mixture).
-fragment HEX_DIGIT
-: ( '0' .. '9' | 'a' .. 'f' | 'A' .. 'F' )
-;"
-
-"From: https://github.com/antlr/grammars-v4/blob/master/abnf/Abnf.g4")
-
-(defun parse-test ()
-  (print (parse-grammar *abnf-grammar*)))
-
-
 (defparameter *tests* nil)
 
 (defmacro define-parse-test (name (str parser) (parsed) &body body)
   `(progn (defun ,name ()
             (let ((,parsed (caar (parse (.first ,parser) ,str))))
-              (progn (assert ,@body) t)))
+              (progn (assert (progn ,@body)) t)))
           (push ',name *tests*)))
 
 (defun run-tests ()
@@ -399,7 +245,7 @@ fragment HEX_DIGIT
                 res))
 
 (define-parse-test test.parse.channel.1
-    ("a : b | c -> skip ;" (.rule))
+    ("a : b | c -> skip ;" (.statement))
     (res)
   (object-equal (make-instance 'rule
                                :channel "skip"
@@ -426,7 +272,7 @@ fragment HEX_DIGIT
                 res))
 
 (define-parse-test test.parse.channel.2
-    ("A : B | C -> channel ( HIDDEN ) ;" (.rule))
+    ("A : B | C -> channel ( HIDDEN ) ;" (.statement))
     (res)
   (object-equal (make-instance 'token
                                :channel "HIDDEN"
@@ -451,3 +297,190 @@ fragment HEX_DIGIT
                                                                             :value "C")))))
                                :name "A")
                 res))
+
+;;; ----------------------------------------------------------------------------
+;;; Queries tests
+;;; ----------------------------------------------------------------------------
+
+(defparameter *abnf-grammar* "
+/*
+BSD License
+Copyright \(c\) 2013, Rainer Schuster
+All rights reserved.
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+3. Neither the name of Rainer Schuster nor the names of its contributors
+   may be used to endorse or promote products derived from this software
+   without specific prior written permission.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+\"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES \(INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION\) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+\(INCLUDING NEGLIGENCE OR OTHERWISE\) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ABNF grammar derived from:
+http://tools.ietf.org/html/rfc5234
+Augmented BNF for Syntax Specifications: ABNF
+January 2008
+http://tools.ietf.org/html/rfc7405
+Case-Sensitive String Support in ABNF
+December 2014
+Terminal rules mainly created by ANTLRWorks 1.5 sample code.
+*/
+grammar Abnf;
+
+// Note: Whitespace handling not as strict as in the specification.
+
+rulelist
+   : rule_* EOF
+   ;
+
+rule_
+   : ID ( '=' | '=/' ) elements
+   ;
+
+elements
+   : alternation
+   ;
+
+alternation
+   : concatenation ( '/' concatenation )*
+   ;
+
+concatenation
+   : repetition ( repetition )*
+   ;
+
+repetition
+   : repeat? element
+   ;
+
+repeat
+   : INT | ( INT? '*' INT? )
+   ;
+
+   element
+   : ID | group | option | STRING | NumberValue | ProseValue
+   ;
+
+group
+   : '(' alternation ')'
+   ;
+
+option
+   : '[' alternation ']'
+   ;
+
+
+NumberValue
+   : '%' ( BinaryValue | DecimalValue | HexValue )
+   ;
+
+
+fragment BinaryValue
+   : 'b' BIT+ ( ( '.' BIT+ )+ | ( '-' BIT+ ) )?
+   ;
+
+
+fragment DecimalValue
+   : 'd' DIGIT+ ( ( '.' DIGIT+ )+ | ( '-' DIGIT+ ) )?
+   ;
+
+
+fragment HexValue
+   : 'x' HEX_DIGIT+ ( ( '.' HEX_DIGIT+ )+ | ( '-' HEX_DIGIT+ ) )?
+   ;
+
+
+ProseValue
+   : '<' ( ~ '>' )* '>'
+   ;
+
+
+ID
+   : ( 'a' .. 'z' | 'A' .. 'Z' ) ( 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '-' )*
+   ;
+
+
+INT
+   : '0' .. '9'+
+   ;
+
+
+COMMENT
+   : ';' ~ ( '\\n' | '\\r' )* '\\r'? '\\n' -> channel ( HIDDEN )
+   ;
+
+
+WS
+   : ( ' ' | '\\t' | '\\r' | '\\n' ) -> channel ( HIDDEN )
+   ;
+
+
+STRING
+   : ( '%s' | '%i' )? '\"' ( ~ '\"' )* '\"'
+   ;
+
+
+fragment BIT
+   : '0' .. '1'
+   ;
+
+
+fragment DIGIT
+   : '0' .. '9'
+   ;
+
+//unused and missing definitions for testing purposes
+
+fragment UNUSED : '0' .. '7' ;
+
+UNUSED2 : ~( TOKEN1 | TOKEN2 ) ;
+
+unused-rule : ( missing-rule '==' ( DIGIT | missing-rule2 )+ )* ;
+
+// Note: from the RFC errata (http://www.rfc-editor.org/errata_search.php?rfc=5234&eid=4040):
+// > ABNF strings are case insensitive and the character set for these strings is US-ASCII.
+// > So the definition of HEXDIG already allows for both upper and lower case (or a mixture).
+fragment HEX_DIGIT
+   : ( '0' .. '9' | 'a' .. 'f' | 'A' .. 'F' )
+   ;"
+
+  "From: https://github.com/antlr/grammars-v4/blob/master/abnf/Abnf.g4")
+
+(defmacro define-query-test (name (req) (response) &body body)
+  `(progn
+     (defun ,name ()
+       (let ((,response (compute-or-get-query ,req)))
+         (progn (assert (progn ,@body)) t)))
+     (push ',name *tests*)))
+
+
+(define-query-test unused-definitions.1
+    ((make-instance 'unused-definitions
+                    :grammar *abnf-grammar*))
+    (response)
+  (object-equal (make-instance 'unused-definitions-response
+                               :unused-definitions
+                               (list "UNUSED" "UNUSED2" "unused-rule"))
+                response))
+
+(define-query-test missing-definitions.1
+    ((make-instance 'missing-definitions
+                    :grammar *abnf-grammar*))
+    (response)
+  (object-equal (make-instance 'missing-definitions-response
+                               :missing-definitions
+                               (list "TOKEN1" "TOKEN2" "missing-rule" "missing-rule2"))
+                response))
