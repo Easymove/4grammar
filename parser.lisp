@@ -71,7 +71,8 @@
 (defun .trash ()
   (.let* ((string (.with-ws
                    (.map 'string
-                         (.and (.item) (.not (.char= +statement-end+))))))
+                         (.and (.not (.char= +statement-end+))
+                               (.item)))))
           (_ (.char= +statement-end+)))
     (warn "Can't parse:~%~A~%" string)
     (.identity nil)))
@@ -184,7 +185,8 @@
 
 (defun .predicate-entity ()
   (.let* ((_ (.with-ws (.char= +action-open+)))
-          (island (.map 'string (.item)))
+          (island (.map 'string (.and (.not (.char= +action-close+))
+                                      (.item))))
           (_ (.char= +action-close+))
           (_ (.char= +predicate-action+)))
     (.identity (make-instance 'predicate-entity
@@ -192,7 +194,8 @@
 
 (defun .action-entity ()
   (.let* ((_ (.with-ws (.char= +action-open+)))
-          (island (.map 'string (.item)))
+          (island (.map 'string (.and (.not (.char= +action-close+))
+                                      (.item))))
           (_ (.char= +action-close+)))
     (.identity (make-instance 'action-entity
                               :island island))))
@@ -323,6 +326,8 @@
 
 (defun .block-comment (&optional result-type)
   (.let* ((_ (.string= +block-comment-open+))
-          (content (.map result-type (.item)))
+          (content (.map result-type
+                         (.and (.not (.string= +block-comment-close+))
+                               (.item))))
           (_ (.string= +block-comment-close+)))
     (.identity content)))
