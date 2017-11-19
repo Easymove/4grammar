@@ -69,7 +69,9 @@
   (every #'upper-case-p string))
 
 (defun .trash ()
-  (.let* ((string (.map 'string (.not (.char= +statement-end+))))
+  (.let* ((string (.with-ws
+                   (.map 'string
+                         (.and (.item) (.not (.char= +statement-end+))))))
           (_ (.char= +statement-end+)))
     (warn "Can't parse:~%~A~%" string)
     (.identity nil)))
@@ -88,7 +90,7 @@
 (defun .grammar ()
   (.let* ((name (.grammar-statement))
           (rules (.zero-or-more (.statement)))
-          (_ (.whitespace)))
+          (_ (.optional (.whitespace))))
     (.identity (make-instance 'grammar
                               :name name
                               :rules rules))))
@@ -102,12 +104,10 @@
 
 
 (defun .statement ()
-  (.let* ((res (.with-ws (.or (.alias)
-                              (.rule-or-token)
-                              ;; skip not parsed rules
-                              (.trash))))
+  (.let* ((stmt (.with-ws (.or (.alias)
+                               (.rule-or-token))))
           (_ (.with-ws (.char= +statement-end+))))
-    (.identity res)))
+    (.identity stmt)))
 
 
 (defun .alias ()
@@ -215,9 +215,9 @@
           (_ (.with-ws (.char= +complex-entity-close+)))
           (mod (.optional (.mod))))
     (.identity (make-instance 'complex-entity
-                              :value alternatives
                               :mod mod
-                              :negated? (not (null negated?))))))
+                              :negated? (not (null negated?))
+                              :alternatives alternatives))))
 
 
 (defun .range-entity ()

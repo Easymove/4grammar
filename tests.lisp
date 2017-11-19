@@ -1,6 +1,7 @@
 (in-package :4grammar)
 
-(defparameter *abnf-grammar* "/*
+(defparameter *abnf-grammar* "
+/*
 BSD License
 Copyright (c) 2013, Rainer Schuster
 All rights reserved.
@@ -27,24 +28,24 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ABNF grammar derived from:
-    http://tools.ietf.org/html/rfc5234
-    Augmented BNF for Syntax Specifications: ABNF
-    January 2008
-    http://tools.ietf.org/html/rfc7405
-    Case-Sensitive String Support in ABNF
-    December 2014
+http://tools.ietf.org/html/rfc5234
+Augmented BNF for Syntax Specifications: ABNF
+January 2008
+http://tools.ietf.org/html/rfc7405
+Case-Sensitive String Support in ABNF
+December 2014
 Terminal rules mainly created by ANTLRWorks 1.5 sample code.
- */
+*/
 grammar Abnf;
 
 // Note: Whitespace handling not as strict as in the specification.
 
 rulelist
-   : rule_* EOF
+: rule_* EOF
    ;
 
 rule_
-   : ID ( '=' | '=/' ) elements
+: ID ( '=' | '=/' ) elements
    ;
 
 elements
@@ -67,7 +68,7 @@ repeat
    : INT | ( INT? '*' INT? )
    ;
 
-element
+   element
    : ID | group | option | STRING | NumberValue | ProseValue
    ;
 
@@ -91,7 +92,7 @@ fragment BinaryValue
 
 
 fragment DecimalValue
-   : 'd' DIGIT+ ( ( '.' DIGIT+ )+ | ( '-' DIGIT+ ) )?
+: 'd' DIGIT+ ( ( '.' DIGIT+ )+ | ( '-' DIGIT+ ) )?
    ;
 
 
@@ -101,27 +102,27 @@ fragment HexValue
 
 
 ProseValue
-   : '<' ( ~ '>' )* '>'
+: '<' ( ~ '>' )* '>'
    ;
 
 
 ID
-   : ( 'a' .. 'z' | 'A' .. 'Z' ) ( 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '-' )*
+: ( 'a' .. 'z' | 'A' .. 'Z' ) ( 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '-' )*
    ;
 
 
 INT
-   : '0' .. '9'+
+: '0' .. '9'+
    ;
 
 
 COMMENT
-   : ';' ~ ( '\\n' | '\\r' )* '\\r'? '\\n' -> channel ( HIDDEN )
+: ';' ~ ( '\\n' | '\\r' )* '\\r'? '\\n' -> channel ( HIDDEN )
    ;
 
 
 WS
-   : ( ' ' | '\\t' | '\\r' | '\\n' ) -> channel ( HIDDEN )
+: ( ' ' | '\\t' | '\\r' | '\\n' ) -> channel ( HIDDEN )
    ;
 
 
@@ -131,12 +132,12 @@ STRING
 
 
 fragment BIT
-   : '0' .. '1'
+: '0' .. '1'
    ;
 
 
 fragment DIGIT
-   : '0' .. '9'
+: '0' .. '9'
    ;
 
 
@@ -144,8 +145,8 @@ fragment DIGIT
 // > ABNF strings are case insensitive and the character set for these strings is US-ASCII.
 // > So the definition of HEXDIG already allows for both upper and lower case (or a mixture).
 fragment HEX_DIGIT
-   : ( '0' .. '9' | 'a' .. 'f' | 'A' .. 'F' )
-;"                                      ;
+: ( '0' .. '9' | 'a' .. 'f' | 'A' .. 'F' )
+;"
 
 "From: https://github.com/antlr/grammars-v4/blob/master/abnf/Abnf.g4")
 
@@ -254,22 +255,22 @@ fragment HEX_DIGIT
   (object-equal (make-instance 'complex-entity
                                :negated? nil
                                :mod #\?
-                               :value (list
-                                       (make-instance
-                                        'alternative
-                                        :entities
-                                        (list (make-instance
-                                               'simple-entity
-                                               :negated? nil
-                                               :mod #\?
-                                               :value (make-instance 'terminal
-                                                                     :value "hey"))
+                               :alternatives (list
                                               (make-instance
-                                               'simple-entity
-                                               :negated? nil
-                                               :mod #\*
-                                               :value (make-instance 'rule-name
-                                                                     :value "yo"))))))
+                                               'alternative
+                                               :entities
+                                               (list (make-instance
+                                                      'simple-entity
+                                                      :negated? nil
+                                                      :mod #\?
+                                                      :value (make-instance 'terminal
+                                                                            :value "hey"))
+                                                     (make-instance
+                                                      'simple-entity
+                                                      :negated? nil
+                                                      :mod #\*
+                                                      :value (make-instance 'rule-name
+                                                                            :value "yo"))))))
                 res))
 
 (define-parse-test test.parse.complex-entity.2
@@ -278,25 +279,25 @@ fragment HEX_DIGIT
   (object-equal (make-instance 'complex-entity
                                :negated? nil
                                :mod #\+
-                               :value (list
-                                       (make-instance
-                                        'alternative
-                                        :entities
-                                        (list (make-instance
-                                               'simple-entity
-                                               :negated? nil
-                                               :mod nil
-                                               :value (make-instance 'terminal
-                                                                     :value "hey"))))
-                                       (make-instance
-                                        'alternative
-                                        :entities
-                                        (list (make-instance
-                                               'simple-entity
-                                               :negated? nil
-                                               :mod nil
-                                               :value (make-instance 'rule-name
-                                                                     :value "yo"))))))
+                               :alternatives (list
+                                              (make-instance
+                                               'alternative
+                                               :entities
+                                               (list (make-instance
+                                                      'simple-entity
+                                                      :negated? nil
+                                                      :mod nil
+                                                      :value (make-instance 'terminal
+                                                                            :value "hey"))))
+                                              (make-instance
+                                               'alternative
+                                               :entities
+                                               (list (make-instance
+                                                      'simple-entity
+                                                      :negated? nil
+                                                      :mod nil
+                                                      :value (make-instance 'rule-name
+                                                                            :value "yo"))))))
                 res))
 
 (define-parse-test test.parse.complex-entity.3
@@ -305,25 +306,25 @@ fragment HEX_DIGIT
   (object-equal (make-instance 'complex-entity
                                :negated? t
                                :mod #\*
-                               :value (list
-                                       (make-instance
-                                        'alternative
-                                        :entities
-                                        (list (make-instance
-                                               'simple-entity
-                                               :negated? nil
-                                               :mod nil
-                                               :value (make-instance 'terminal
-                                                                     :value "A"))))
-                                       (make-instance
-                                        'alternative
-                                        :entities
-                                        (list (make-instance
-                                               'simple-entity
-                                               :negated? nil
-                                               :mod nil
-                                               :value (make-instance 'terminal
-                                                                     :value "B"))))))
+                               :alternatives (list
+                                              (make-instance
+                                               'alternative
+                                               :entities
+                                               (list (make-instance
+                                                      'simple-entity
+                                                      :negated? nil
+                                                      :mod nil
+                                                      :value (make-instance 'terminal
+                                                                            :value "A"))))
+                                              (make-instance
+                                               'alternative
+                                               :entities
+                                               (list (make-instance
+                                                      'simple-entity
+                                                      :negated? nil
+                                                      :mod nil
+                                                      :value (make-instance 'terminal
+                                                                            :value "B"))))))
                 res))
 
 (define-parse-test test.parse.set-entity.1

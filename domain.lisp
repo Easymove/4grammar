@@ -83,9 +83,9 @@
         :type list)))
 
 (defclass complex-entity (negatable-entity-base)
-  ((value :accessor entity-value
-          :initarg :value
-          :type list)))
+  ((alternatives :accessor entity-alternatives
+                 :initarg :alternatives
+                 :type list)))
 
 (defclass grammar-symbol (grammar-definition)
   ((value :accessor grammar-symbol-value
@@ -107,6 +107,21 @@
 ;;; ----------------------------------------------------------------------------
 ;;; printers
 ;;; ----------------------------------------------------------------------------
+(defgeneric get-value (entity)
+  (:documentation "Returns value of the given grammar entity. Used for printing."))
+
+(defmethod get-value ((ent set-entity))
+  (entity-set ent))
+
+(defmethod get-value ((ent complex-entity))
+  (entity-alternatives ent))
+
+(defmethod get-value ((ent simple-entity))
+  (entity-value ent))
+
+(defmethod get-value ((ent range-entity))
+  (format nil "'~A' to '~A'" (range-from ent) (range-to ent)))
+
 (defmethod print-object ((term terminal) stream)
   (format stream "'~A'" (grammar-symbol-value term)))
 
@@ -114,22 +129,16 @@
   (format stream "~A" (grammar-symbol-value term)))
 
 (defmethod print-object ((term entity-with-mod-base) stream)
-  (format stream "#<~A~@[~A~]: ~A>" (type-of term) (entity-mod term) (entity-value term)))
+  (format stream "#<~A~@[~A~]: ~A>" (type-of term) (entity-mod term) (get-value term)))
 
 (defmethod print-object ((term negatable-entity-base) stream)
-  (format stream "#<~A~@[~A~]: ~@[~A~] ~A>" (type-of term) (entity-mod term) (entity-negated? term) (entity-value term)))
-
-(defmethod print-object ((term set-entity) stream)
-  (format stream "#<~A~@[~A~]: ~@[~A~] ~A>" (type-of term) (entity-mod term) (entity-negated? term) (entity-set term)))
+  (format stream "#<~A~@[~A~]: ~@[~A~] ~A>" (type-of term) (entity-mod term) (entity-negated? term) (get-value term)))
 
 (defmethod print-object ((term wildcard-entity) stream)
   (format stream "#<~A~@[~A~]>" (type-of term) (entity-mod term)))
 
 (defmethod print-object ((term island-entity-base) stream)
   (format stream "#<~A: ~A>" (type-of term) (entity-island term)))
-
-(defmethod print-object ((term range-entity) stream)
-  (format stream "#<~A~@[~A~]: '~A' to '~A'>" (type-of term) (entity-mod term) (range-from term) (range-to term)))
 
 (defmethod print-object ((term alternative) stream)
   (format stream "#<~A: ~A>" (type-of term) (alternative-entities term)))
@@ -138,7 +147,7 @@
   (format stream "#<~A ~A: ~A>" (type-of term) (rule-name term) (rule-alternatives term)))
 
 (defmethod print-object ((term grammar) stream)
-  (format stream "#<~A: ~A>" (type-of term) (grammar-rules term)))
+  (format stream "#<~A ~A: ~A>" (type-of term) (grammar-name term) (grammar-rules term)))
 
 ;;; ----------------------------------------------------------------------------
 ;;; Maps
