@@ -25,6 +25,9 @@
 (defclass alias (rule)
   ())
 
+(defclass token (rule)
+  ())
+
 (defclass alternative (grammar-definition)
   ((entities :accessor alternative-entities
              :initarg :entities
@@ -93,6 +96,12 @@
   ())
 
 (defclass non-terminal (grammar-symbol)
+  ())
+
+(defclass rule-name (non-terminal)
+  ())
+
+(defclass token-name (non-terminal)
   ())
 
 ;;; ----------------------------------------------------------------------------

@@ -268,7 +268,7 @@ fragment HEX_DIGIT
                                                'simple-entity
                                                :negated? nil
                                                :mod #\*
-                                               :value (make-instance 'non-terminal
+                                               :value (make-instance 'rule-name
                                                                      :value "yo"))))))
                 res))
 
@@ -295,7 +295,7 @@ fragment HEX_DIGIT
                                                'simple-entity
                                                :negated? nil
                                                :mod nil
-                                               :value (make-instance 'non-terminal
+                                               :value (make-instance 'rule-name
                                                                      :value "yo"))))))
                 res))
 
@@ -410,7 +410,7 @@ fragment HEX_DIGIT
                                                       'simple-entity
                                                       :negated? nil
                                                       :mod nil
-                                                      :value (make-instance 'non-terminal
+                                                      :value (make-instance 'rule-name
                                                                             :value "b"))))
                                               (make-instance
                                                'alternative
@@ -419,15 +419,15 @@ fragment HEX_DIGIT
                                                       'simple-entity
                                                       :negated? nil
                                                       :mod nil
-                                                      :value (make-instance 'non-terminal
+                                                      :value (make-instance 'rule-name
                                                                             :value "c")))))
                                :name "a")
                 res))
 
 (define-parse-test test.parse.channel.2
-    ("a : b | c -> channel ( HIDDEN ) ;" (.rule))
+    ("A : B | C -> channel ( HIDDEN ) ;" (.rule))
     (res)
-  (object-equal (make-instance 'rule
+  (object-equal (make-instance 'token
                                :channel "HIDDEN"
                                :alternatives (list
                                               (make-instance
@@ -437,8 +437,8 @@ fragment HEX_DIGIT
                                                       'simple-entity
                                                       :negated? nil
                                                       :mod nil
-                                                      :value (make-instance 'non-terminal
-                                                                            :value "b"))))
+                                                      :value (make-instance 'token-name
+                                                                            :value "B"))))
                                               (make-instance
                                                'alternative
                                                :entities
@@ -446,7 +446,7 @@ fragment HEX_DIGIT
                                                       'simple-entity
                                                       :negated? nil
                                                       :mod nil
-                                                      :value (make-instance 'non-terminal
-                                                                            :value "c")))))
-                               :name "a")
+                                                      :value (make-instance 'token-name
+                                                                            :value "C")))))
+                               :name "A")
                 res))

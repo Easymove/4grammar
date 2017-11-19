@@ -65,6 +65,15 @@
           (res parser))
     (.identity res)))
 
+(defun token-name-p (string)
+  (every #'upper-case-p string))
+
+(defun .trash ()
+  (.let* ((string (.map 'string (.not (.char= +statement-end+))))
+          (_ (.char= +statement-end+)))
+    (warn "Can't parse:~%~A~%" string)
+    (.identity nil)))
+
 ;;; -----------------------------------------------------------------------------
 ;;; general parsers
 ;;; -----------------------------------------------------------------------------
@@ -93,8 +102,10 @@
 
 
 (defun .statement ()
-  (.let* ((res (.with-ws (.plus (.rule)
-                                (.alias))))
+  (.let* ((res (.with-ws (.or (.alias)
+                              (.rule-or-token)
+                              ;; skip not parsed rules
+                              (.trash))))
           (_ (.with-ws (.char= +statement-end+))))
     (.identity res)))
 
@@ -108,12 +119,14 @@
                                 :alternatives alternatives)))))
 
 
-(defun .rule ()
+(defun .rule-or-token ()
   (.rule-aux))
 
 
 (defun .rule-aux (&optional (make-fn (lambda (name channel alternatives)
-                                       (make-instance 'rule
+                                       (make-instance (if (token-name-p name)
+                                                          'token
+                                                          'rule)
                                                       :name name
                                                       :channel channel
                                                       :alternatives alternatives))))
@@ -290,7 +303,9 @@
 
 (defun .non-terminal ()
   (.let* ((val (.with-ws (.first (.identifier)))))
-    (.identity (make-instance 'non-terminal
+    (.identity (make-instance (if (token-name-p val)
+                                  'token-name
+                                  'rule-name)
                               :value val))))
 
 
