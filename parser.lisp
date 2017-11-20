@@ -19,6 +19,8 @@
 (defparameter +range-delimiter+ "..")
 (defparameter +catch+ "catch")
 (defparameter +finally+ "finally")
+(defparameter +returns+ "returns")
+(defparameter +locals+ "locals")
 (defparameter +command-sign+ "->")
 (defparameter +commands+ (list "skip" "more" "popMode"))
 (defparameter +functions+ (list "mode" "channel" "type" "pushMode"))
@@ -141,16 +143,15 @@
 (defun .catchers ()
   (.or (.let* ((_ (.with-ws (.string-eq +catch+)))
                (_ (.with-ws (.char= +param-open+)))
-               (tp (.with-ws (.identifier)))
-               (var (.with-ws (.identifier)))
-               (_ (.with-ws (.char= +param-open+)))
+               (args (.map 'string (.and (.not (.char= +param-close+))
+                                         (.item))))
+               (_ (.with-ws (.char= +param-close+)))
                (_ (.with-ws (.char= +action-open+)))
                (island (.map 'string (.and (.not (.char= +action-close+))
                                            (.item))))
                (_ (.with-ws (.char= +action-close+))))
          (.identity (make-instance 'catcher
-                                   :arg var
-                                   :arg-type tp
+                                   :args args
                                    :island island)))
        (.let* ((_ (.with-ws (.string-eq +finally+)))
                (_ (.with-ws (.char= +action-open+)))
@@ -170,29 +171,48 @@
 
 (defun .alias ()
   (.let* ((_ (.with-ws (.string-eq "fragment"))))
-    (.rule-aux (lambda (name command alternatives)
-                 (make-instance 'alias
-                                :name name
-                                :command command
-                                :alternatives alternatives)))))
+    (.rule-aux (constantly 'alias))))
 
 
 (defun .rule-or-token ()
   (.rule-aux))
 
 
-(defun .rule-aux (&optional (make-fn (lambda (name command alternatives)
-                                       (make-instance (if (token-name-p name)
-                                                          'token
-                                                          'rule)
-                                                      :name name
-                                                      :command command
-                                                      :alternatives alternatives))))
+(defun .rule-aux (&optional (type-fn (lambda (name)
+                                       (if (token-name-p name)
+                                           'token
+                                           'rule))))
   (.let* ((name (.with-ws (.identifier)))
+          (args (.optional
+                 (.let* ((_ (.with-ws (.char= +param-open+)))
+                         (island (.map 'string (.and (.not (.char= +param-close+))
+                                                     (.item))))
+                         (_ (.char= +param-close+)))
+                   (.identity island))))
+          (returns (.optional
+                    (.let* ((_ (.with-ws (.string-eq +returns+)))
+                            (_ (.with-ws (.char= +param-open+)))
+                            (island (.map 'string (.and (.not (.char= +param-close+))
+                                                        (.item))))
+                            (_ (.char= +param-close+)))
+                      (.identity island))))
+          (locals (.optional
+                   (.let* ((_ (.with-ws (.string-eq +locals+)))
+                           (_ (.with-ws (.char= +param-open+)))
+                           (island (.map 'string (.and (.not (.char= +param-close+))
+                                                       (.item))))
+                           (_ (.char= +param-close+)))
+                     (.identity island))))
           (_ (.with-ws (.char= +rule-delimiter+)))
           (alternatives (.alternatives-list))
           (command (.optional (.command))))
-    (.identity (funcall make-fn name command alternatives))))
+    (.identity (make-instance (funcall type-fn name)
+                              :name name
+                              :args args
+                              :returns returns
+                              :locals locals
+                              :command command
+                              :alternatives alternatives))))
 
 
 (defun .command ()
@@ -368,13 +388,20 @@
   (.let* ((val (.with-ws (.first (.identifier))))
           (op/arg (.optional (.let* ((op (.string-eq* +non-terminals-ops+))
                                      (arg (.identifier)))
-                               (.identity (cons op arg))))))
+                               (.identity (cons op arg)))))
+          (args (.optional
+                 (.let* ((_ (.with-ws (.char= +param-open+)))
+                         (island (.map 'string (.and (.not (.char= +param-close+))
+                                                     (.item))))
+                         (_ (.char= +param-close+)))
+                   (.identity island)))))
     (.identity (make-instance (if (token-name-p val)
                                   'token-name
                                   'rule-name)
                               :value val
                               :operator (car op/arg)
-                              :operator-value (cdr op/arg)))))
+                              :operator-value (cdr op/arg)
+                              :args args))))
 
 
 (defun .comment (&optional result-type)

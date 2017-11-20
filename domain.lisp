@@ -21,20 +21,28 @@
    (command :accessor rule-command
             :initarg :command
             :type keyword)
+   (args :accessor rule-args
+         :initarg :args
+         :type (or string nil)
+         :initform nil)
+   (returns :accessor rule-returns
+            :initarg :returns
+            :type (or string nil)
+            :initform nil)
+   (locals :accessor rule-locals
+           :initarg :locals
+           :type (or string nil)
+           :initform nil)
    (catchers :accessor rule-catchers
              :initarg :catchers
              :type list
              :initform nil)))
 
 (defclass catcher ()
-  ((arg :accessor catcher-arg
-        :initarg :arg
-        :initform nil
-        :type (or string nil))
-   (arg-type :accessor catcher-arg-type
-             :initarg :arg-type
-             :initform nil
-             :type (or string nil))
+  ((args :accessor catcher-args
+         :initarg :args
+         :initform nil
+         :type (or string nil))
    (island :initarg catcher-island
            :initarg :island
            :initform nil
@@ -138,7 +146,11 @@
    (value :accessor symbol-asgn-value
           :initarg :operator-value
           :type (or string nil)
-          :initform nil)))
+          :initform nil)
+   (args :accessor non-term-args
+         :initarg :args
+         :type (or string nil)
+         :initform nil)))
 
 (defclass rule-name (non-terminal)
   ())
