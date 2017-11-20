@@ -12,7 +12,8 @@
                #:anaphora
                #:alexandria
                #:drakma
-               #:yason)
+               #:yason
+               #:cl-graph)
   :serial t
   :components ((:file "package")
                (:file "storage")

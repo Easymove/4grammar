@@ -487,3 +487,61 @@ fragment HEX_DIGIT
                                :missing-definitions
                                (list "TOKEN1" "TOKEN2" "missing-rule" "missing-rule2"))
                 response))
+
+
+(define-query-test draw-grammar.1
+    ((make-instance 'draw-grammar
+                    :grammar *abnf-grammar*))
+    (response)
+  (object-equal (make-instance 'draw-grammar-response
+                               :dot "digraph G {
+graph [];
+
+0 [label=\"rulelist\", ];
+1 [label=\"rule_\", ];
+2 [label=\"ID\", ];
+3 [label=\"elements\", ];
+4 [label=\"alternation\", ];
+5 [label=\"concatenation\", ];
+6 [label=\"repetition\", ];
+7 [label=\"repeat\", ];
+8 [label=\"INT\", ];
+9 [label=\"element\", ];
+10 [label=\"group\", ];
+11 [label=\"option\", ];
+12 [label=\"STRING\", ];
+13 [label=\"NumberValue\", ];
+14 [label=\"BinaryValue\", ];
+15 [label=\"BIT\", ];
+16 [label=\"DecimalValue\", ];
+17 [label=\"DIGIT\", ];
+18 [label=\"HexValue\", ];
+19 [label=\"HEX_DIGIT\", ];
+20 [label=\"ProseValue\", ];
+21 [label=\"EOF\", ];
+0->1 [];
+1->2 [];
+9->2 [];
+1->3 [];
+10->4 [];
+11->4 [];
+3->4 [];
+4->5 [];
+5->6 [];
+6->7 [];
+7->8 [];
+6->9 [];
+9->10 [];
+9->11 [];
+9->12 [];
+9->13 [];
+13->14 [];
+14->15 [];
+13->16 [];
+16->17 [];
+13->18 [];
+18->19 [];
+9->20 [];
+0->21 [];
+}")
+                response))
