@@ -20,7 +20,28 @@
                  :type list)
    (command :accessor rule-command
             :initarg :command
-            :type keyword)))
+            :type keyword)
+   (catchers :accessor rule-catchers
+             :initarg :catchers
+             :type list
+             :initform nil)))
+
+(defclass catcher ()
+  ((arg :accessor catcher-arg
+        :initarg :arg
+        :initform nil
+        :type (or string nil))
+   (arg-type :accessor catcher-arg-type
+             :initarg :arg-type
+             :initform nil
+             :type (or string nil))
+   (island :initarg catcher-island
+           :initarg :island
+           :initform nil
+           :type string)))
+
+(defclass final-catcher (catcher)
+  ())
 
 (defclass alias (rule)
   ())

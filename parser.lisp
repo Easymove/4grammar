@@ -13,8 +13,12 @@
 (defparameter +negation+ #\~)
 (defparameter +action-open+ #\{)
 (defparameter +action-close+ #\})
+(defparameter +param-open+ #\[)
+(defparameter +param-close+ #\])
 (defparameter +predicate-action+ #\?)
 (defparameter +range-delimiter+ "..")
+(defparameter +catch+ "catch")
+(defparameter +finally+ "finally")
 (defparameter +command-sign+ "->")
 (defparameter +commands+ (list "skip" "more" "popMode"))
 (defparameter +functions+ (list "mode" "channel" "type" "pushMode"))
@@ -122,11 +126,39 @@
 
 
 (defun .statement ()
-  (.let* ((stmt (.with-ws (.or (.mode)
-                               (.alias)
-                               (.rule-or-token))))
-          (_ (.with-ws (.char= +statement-end+))))
-    (.identity stmt)))
+  (.let* ((stmt (.with-ws
+                 (.or (.mode)
+                      (.alias)
+                      (.rule-or-token))))
+          (_ (.with-ws (.char= +statement-end+)))
+          (catchers (.optional (.with-ws (.zero-or-more (.catchers))))))
+    (.identity
+     (progn
+       (setf (rule-catchers stmt) catchers)
+       stmt))))
+
+
+(defun .catchers ()
+  (.or (.let* ((_ (.with-ws (.string-eq +catch+)))
+               (_ (.with-ws (.char= +param-open+)))
+               (tp (.with-ws (.identifier)))
+               (var (.with-ws (.identifier)))
+               (_ (.with-ws (.char= +param-open+)))
+               (_ (.with-ws (.char= +action-open+)))
+               (island (.map 'string (.and (.not (.char= +action-close+))
+                                           (.item))))
+               (_ (.with-ws (.char= +action-close+))))
+         (.identity (make-instance 'catcher
+                                   :arg var
+                                   :arg-type tp
+                                   :island island)))
+       (.let* ((_ (.with-ws (.string-eq +finally+)))
+               (_ (.with-ws (.char= +action-open+)))
+               (island (.map 'string (.and (.not (.char= +action-close+))
+                                           (.item))))
+               (_ (.with-ws (.char= +action-close+))))
+         (.identity (make-instance 'final-catcher
+                                   :island island)))))
 
 
 (defun .mode ()
