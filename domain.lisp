@@ -110,7 +110,14 @@
   ())
 
 (defclass non-terminal (grammar-symbol)
-  ())
+  ((operator :accessor symbol-asgn
+             :initarg :operator
+             :type (or string nil)
+             :initform nil)
+   (value :accessor symbol-asgn-value
+          :initarg :operator-value
+          :type (or string nil)
+          :initform nil)))
 
 (defclass rule-name (non-terminal)
   ())

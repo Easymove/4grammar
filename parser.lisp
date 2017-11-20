@@ -18,6 +18,7 @@
 (defparameter +command-sign+ "->")
 (defparameter +commands+ (list "skip" "more" "popMode"))
 (defparameter +functions+ (list "mode" "channel" "type" "pushMode"))
+(defparameter +non-terminals-ops+ (list "=" "+="))
 
 (defparameter +line-comment-start+ "//")
 (defparameter +block-comment-open+ "/*")
@@ -330,12 +331,18 @@
     (.identity (make-instance 'terminal
                               :value val))))
 
+
 (defun .non-terminal ()
-  (.let* ((val (.with-ws (.first (.identifier)))))
+  (.let* ((val (.with-ws (.first (.identifier))))
+          (op/arg (.optional (.let* ((op (.string-eq* +non-terminals-ops+))
+                                     (arg (.identifier)))
+                               (.identity (cons op arg))))))
     (.identity (make-instance (if (token-name-p val)
                                   'token-name
                                   'rule-name)
-                              :value val))))
+                              :value val
+                              :operator (car op/arg)
+                              :operator-value (cdr op/arg)))))
 
 
 (defun .comment (&optional result-type)
