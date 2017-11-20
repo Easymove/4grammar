@@ -114,10 +114,18 @@
 
 
 (defun .statement ()
-  (.let* ((stmt (.with-ws (.or (.alias)
+  (.let* ((stmt (.with-ws (.or (.mode)
+                               (.alias)
                                (.rule-or-token))))
           (_ (.with-ws (.char= +statement-end+))))
     (.identity stmt)))
+
+
+(defun .mode ()
+  (.let* ((_ (.with-ws (.string-eq "mode")))
+          (name (.with-ws (.identifier))))
+    (make-instance 'mode
+                   :mode name)))
 
 
 (defun .alias ()

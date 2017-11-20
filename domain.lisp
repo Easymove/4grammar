@@ -28,6 +28,11 @@
 (defclass token (rule)
   ())
 
+(defclass mode ()
+  ((mode :accessor mode
+         :initarg :mode
+         :type string)))
+
 (defclass alternative (grammar-definition)
   ((entities :accessor alternative-entities
              :initarg :entities
@@ -190,4 +195,7 @@
   (funcall function node))
 
 (defmethod traverse ((node wildcard-entity) function)
+  (funcall function node))
+
+(defmethod traverse ((node mode) function)
   (funcall function node))
