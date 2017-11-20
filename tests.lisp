@@ -244,11 +244,12 @@
                                :island " SomePredicate.here() ")
                 res))
 
-(define-parse-test test.parse.channel.1
+(define-parse-test test.parse.command.1
     ("a : b | c -> skip ;" (.statement))
     (res)
   (object-equal (make-instance 'rule
-                               :channel "skip"
+                               :command (make-instance 'command
+                                                       :name "skip")
                                :alternatives (list
                                               (make-instance
                                                'alternative
@@ -271,11 +272,13 @@
                                :name "a")
                 res))
 
-(define-parse-test test.parse.channel.2
+(define-parse-test test.parse.command.2
     ("A : B | C -> channel ( HIDDEN ) ;" (.statement))
     (res)
   (object-equal (make-instance 'token
-                               :channel "HIDDEN"
+                               :command (make-instance 'command
+                                                       :name "channel"
+                                                       :arg "HIDDEN")
                                :alternatives (list
                                               (make-instance
                                                'alternative
@@ -370,7 +373,7 @@ repeat
    : INT | ( INT? '*' INT? )
    ;
 
-   element
+element
    : ID | group | option | STRING | NumberValue | ProseValue
    ;
 

@@ -65,8 +65,6 @@
       (make-instance 'missing-definitions-response
                      :missing-definitions (set-difference used defined :test #'string=)))))
 
-
-(defparameter +hidden-channels+ (list "HIDDEN" "skip"))
 (defparameter +predefined-tokens+ (list "EOF"))
 
 (declaim (ftype (function (grammar) (values list list)) grammar-defined/used-definitions))
@@ -77,10 +75,11 @@
               (lambda (el)
                 (typecase el
                   (rule
-                   (if (not (or (some (curry #'equal (rule-channel el)) +hidden-channels+)
-                                first-rule))
+                   (if (not first-rule)
                        (pushnew (rule-name el) defined :test #'equal)
-                       (setf first-rule nil)))
+                       (setf first-rule nil))
+                   (when (rule-command el)
+                     (pushnew (rule-name el) used :test #'equal)))
                   (non-terminal
                    (unless (member (grammar-symbol-value el) +predefined-tokens+ :test #'equal)
                      (pushnew (grammar-symbol-value el) used :test #'equal))))))

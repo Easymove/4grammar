@@ -18,8 +18,8 @@
    (alternatives :accessor rule-alternatives
                  :initarg :alternatives
                  :type list)
-   (channel :accessor rule-channel
-            :initarg :channel
+   (command :accessor rule-command
+            :initarg :command
             :type keyword)))
 
 (defclass alias (rule)
@@ -32,6 +32,15 @@
   ((mode :accessor mode
          :initarg :mode
          :type string)))
+
+(defclass command ()
+  ((name :accessor command-name
+         :initarg :name
+         :type string)
+   (arg :accessor command-arg
+        :initarg :arg
+        :type (or string nil)
+        :initform nil)))
 
 (defclass alternative (grammar-definition)
   ((entities :accessor alternative-entities
@@ -164,7 +173,9 @@
   (mapc function (grammar-rules node)))
 
 (defmethod map-members ((node rule) function)
-  (mapc function (rule-alternatives node)))
+  (mapc function (rule-alternatives node))
+  (awhen (rule-command node)
+    (funcall function it)))
 
 (defmethod map-members ((node alternative) function)
   (mapc function (alternative-entities node)))
@@ -198,4 +209,7 @@
   (funcall function node))
 
 (defmethod traverse ((node mode) function)
+  (funcall function node))
+
+(defmethod traverse ((node command) function)
   (funcall function node))

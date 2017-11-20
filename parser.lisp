@@ -15,8 +15,9 @@
 (defparameter +action-close+ #\})
 (defparameter +predicate-action+ #\?)
 (defparameter +range-delimiter+ "..")
-(defparameter +redirection-sign+ "->")
-(defparameter +channel+ "channel")
+(defparameter +command-sign+ "->")
+(defparameter +commands+ (list "skip" "more" "popMode"))
+(defparameter +functions+ (list "mode" "channel" "type" "pushMode"))
 
 (defparameter +line-comment-start+ "//")
 (defparameter +block-comment-open+ "/*")
@@ -47,7 +48,7 @@
        (.comment)))
 
 (defun .identifier ()
-  (.and (.not (.string-eq +redirection-sign+))
+  (.and (.not (.string-eq +command-sign+))
         (.map 'string (.is #'word-constituent-p))))
 
 (defun .literal ()
@@ -75,6 +76,12 @@
       (.and (.char= (aref string 0))
             (.string-eq (subseq string 1))
             (.identity string))))
+
+(defun .string-eq* (list)
+  (if list
+      (.or (.string-eq (car list))
+           (.string-eq* (cdr list)))
+      (.fail)))
 
 (defun .trash ()
   (.let* ((string (.with-ws
@@ -130,10 +137,10 @@
 
 (defun .alias ()
   (.let* ((_ (.with-ws (.string-eq "fragment"))))
-    (.rule-aux (lambda (name channel alternatives)
+    (.rule-aux (lambda (name command alternatives)
                  (make-instance 'alias
                                 :name name
-                                :channel channel
+                                :command command
                                 :alternatives alternatives)))))
 
 
@@ -141,33 +148,35 @@
   (.rule-aux))
 
 
-(defun .rule-aux (&optional (make-fn (lambda (name channel alternatives)
+(defun .rule-aux (&optional (make-fn (lambda (name command alternatives)
                                        (make-instance (if (token-name-p name)
                                                           'token
                                                           'rule)
                                                       :name name
-                                                      :channel channel
+                                                      :command command
                                                       :alternatives alternatives))))
   (.let* ((name (.with-ws (.identifier)))
           (_ (.with-ws (.char= +rule-delimiter+)))
           (alternatives (.alternatives-list))
-          (channel (.optional (.channel))))
-    (.identity (funcall make-fn name channel alternatives))))
+          (command (.optional (.command))))
+    (.identity (funcall make-fn name command alternatives))))
 
 
-(defun .channel ()
-  (.let* ((_ (.with-ws (.string-eq +redirection-sign+)))
-          (channel (.channel-name)))
-    (.identity channel)))
+(defun .command ()
+  (.let* ((_ (.with-ws (.string-eq +command-sign+)))
+          (command (.with-ws (.or (.string-eq* +commands+)
+                                  (.string-eq* +functions+))))
+          (arg (.with-ws (.optional (.arg)))))
+    (.identity (make-instance 'command
+                              :name command
+                              :arg arg))))
 
 
-(defun .channel-name ()
-  (.or (.let* ((_ (.with-ws (.string-eq +channel+)))
-               (_ (.with-ws (.char= +complex-entity-open+)))
-               (channel (.with-ws (.identifier)))
-               (_ (.with-ws (.char= +complex-entity-close+))))
-         (.identity channel))
-       (.with-ws (.identifier))))
+(defun .arg ()
+  (.let* ((_ (.with-ws (.char= +complex-entity-open+)))
+          (arg (.with-ws (.identifier)))
+          (_ (.with-ws (.char= +complex-entity-close+))))
+    (.identity arg)))
 
 
 (defun .alternatives-list ()
