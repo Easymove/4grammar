@@ -59,14 +59,15 @@
         (.map 'string (.is #'word-constituent-p))))
 
 (defun .literal ()
-  (.let* ((_ (.char= +literal-quote+))
-          (string
-           (.map 'string
-                 (.plus (.let* ((_ (.char= +literal-escape+)))
-                          (.item))
-                        (.is-not 'char= +literal-quote+))))
-          (_ (.char= +literal-quote+)))
-    (.identity string)))
+  (.first
+   (.let* ((_ (.char= +literal-quote+))
+           (string
+            (.map 'string
+                  (.plus (.is-not 'char= +literal-quote+)
+                         (.let* ((_ (.char= +literal-escape+)))
+                           (.item)))))
+           (_ (.char= +literal-quote+)))
+     (.identity string))))
 
 (defun .with-ws (parser)
   (.let* ((_ (.zero-or-more (.whitespace)))

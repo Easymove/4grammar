@@ -99,8 +99,7 @@
 
 (defmethod execute ((query draw-grammar))
   (let ((grammar (get-grammar (query-grammar query)))
-        (graph (cl-graph:make-graph 'cl-graph:graph-container :default-edge-type :directed))
-        (visited (make-hash-table :test #'equal)))
+        (graph (cl-graph:make-graph 'cl-graph:graph-container :default-edge-type :directed)))
     (labels ((%lookup (name)
                (traverse grammar
                          (lambda (el)
@@ -108,27 +107,50 @@
                                       (equal (rule-name el) name))
                              (return-from %lookup el))))
                nil)
+             (%name (el)
+               (etypecase el
+                 (rule (rule-name el))
+                 (grammar-symbol (grammar-symbol-value el))))
              (%draw-children (rule)
-               (unless (gethash rule visited)
-                 (setf (gethash rule visited) t)
-                 (cl-graph:add-vertex graph rule)
-                 (traverse rule (lambda (el)
-                                  (when (typep el 'non-terminal)
-                                    (let ((next-rule (%lookup (grammar-symbol-value el))))
-                                      (when next-rule
-                                        (%draw-children next-rule))
-                                      (cl-graph:add-edge-between-vertexes
-                                       graph rule (or next-rule el)))))))))
-      (%draw-children (car (grammar-rules grammar))))
-    (make-instance 'draw-grammar-response
-                   :dot (with-output-to-string (str)
-                          ;; TODO: extend with more customizations
-                          (cl-graph:graph->dot graph str
-                                               :edge-labeler nil
-                                               :vertex-labeler
-                                               (lambda (v stream)
-                                                 (format stream "~A"
-                                                         (awhen (cl-graph:element v)
-                                                           (typecase it
-                                                             (rule (rule-name it))
-                                                             (non-terminal (grammar-symbol-value it)))))))))))
+               (aif (cl-graph:find-vertex-if
+                     graph
+                     (curry #'equal (%name rule))
+                     :key (compose #'%name #'cl-graph:element))
+                    it
+                    (prog1
+                        (cl-graph:add-vertex graph rule)
+                      (when (typep rule 'rule)
+                        (traverse rule (lambda (el)
+                                         (typecase el
+                                           (non-terminal
+                                            (let ((next-rule (%lookup (grammar-symbol-value el))))
+                                              (when next-rule
+                                                (%draw-children next-rule))
+                                              (cl-graph:add-edge-between-vertexes
+                                               graph rule (or next-rule el))))
+                                           (terminal
+                                            (cl-graph:add-edge-between-vertexes
+                                             graph rule (%draw-children el)))))))))))
+      (mapc #'%draw-children (grammar-rules grammar))
+      (make-instance 'draw-grammar-response
+                     :dot (with-output-to-string (str)
+                            ;; TODO: extend with more customizations
+                            (cl-graph:graph->dot graph str
+                                                 :edge-labeler nil
+                                                 :vertex-labeler
+                                                 (lambda (v stream)
+                                                   (format stream "~a" (%name (cl-graph:element v))))
+                                                 :vertex-formatter
+                                                 (lambda (v stream)
+                                                   (format stream "color=~A"
+                                                           (awhen (cl-graph:element v)
+                                                             (etypecase it
+                                                               (rule
+                                                                (if (= (length (cl-graph:parent-vertexes v)) 0)
+                                                                    "blue"
+                                                                    "black"))
+                                                               (grammar-symbol
+                                                                (if (member (grammar-symbol-value it)
+                                                                            +predefined-tokens+ :test #'equal)
+                                                                    "black"
+                                                                    "red"))))))))))))
