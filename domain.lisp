@@ -275,5 +275,5 @@
        (eq (range-to s1)
            (range-to s2))))
 
-(defmethod grammar-symbol-equal ((s1 Wildcard-entity) (s2 Wildcard-entity))
+(defmethod grammar-symbol-equal ((s1 wildcard-entity) (s2 wildcard-entity))
   t)

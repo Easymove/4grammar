@@ -23,13 +23,16 @@
 
 (defgeneric object-equal (obj1 obj2))
 
+(defvar *ignore-fields* nil)
+
 (defmethod object-equal ((obj1 t) (obj2 t))
   (or (eq obj1 obj2)
       (and (equal (class-of obj1) (class-of obj2))
            (loop
               :for slot :in (sb-mop:class-slots (class-of obj1))
-              :always (object-equal (slot-value obj1 (sb-mop:slot-definition-name slot))
-                                    (slot-value obj2 (sb-mop:slot-definition-name slot)))))))
+              :always (or (member (sb-mop:slot-definition-name slot) *ignore-fields*)
+                          (object-equal (slot-value obj1 (sb-mop:slot-definition-name slot))
+                                        (slot-value obj2 (sb-mop:slot-definition-name slot))))))))
 
 (defmethod object-equal ((obj1 number) (obj2 number))
   (= obj1 obj2))
@@ -678,3 +681,31 @@ graph [];
                                                                      :value "=")))
                 response))
 
+
+(define-query-test double-l-one-check.1
+    ((make-instance 'double-l-one-check
+                    :grammar *abnf-grammar*))
+    (response)
+  (let ((*ignore-fields* '(rule alt1 alt2)))
+    (object-equal (make-instance 'double-l-one-check-response
+                                 :double-l-one-check nil
+                                 :conflicts (list
+                                             (make-instance 'conflict
+                                                            :rule nil
+                                                            :alt1 nil
+                                                            :alt2 nil
+                                                            :set (list (make-instance 'token-name
+                                                                                      :value "INT")))
+                                             (make-instance 'conflict
+                                                            :rule nil
+                                                            :alt1 nil
+                                                            :alt2 nil
+                                                            :set (list (make-instance 'token-name
+                                                                                      :value "INT")))
+                                             (make-instance 'conflict
+                                                            :rule nil
+                                                            :alt1 nil
+                                                            :alt2 nil
+                                                            :set (list (make-instance 'token-name
+                                                                                      :value "INT")))))
+                  response)))

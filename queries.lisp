@@ -186,6 +186,7 @@
 (defmethod first-set ((target string) (grammar grammar))
   (first-set (lookup target grammar) grammar))
 
+(declaim (ftype (function (grammar-definition) list) first-set-for-terminal))
 (defun first-set-for-terminal (el)
   (list el))
 
@@ -304,3 +305,70 @@
                                                 :test #'grammar-symbol-equal))
                                (setf found t)))))))))))))))
     acc))
+
+;;; ----------------------------------------------------------------------------
+;;; LL(1) check query
+;;; ----------------------------------------------------------------------------
+
+(defclass double-l-one-check (query)
+  ())
+
+(defclass double-l-one-check-response (response)
+  ((double-l-one-check :accessor response-double-l-one-check
+                       :initarg :double-l-one-check
+                       :type boolean)
+   (conflicts :accessor response-conflicts
+              :initarg :conflicts
+              :type list)))
+
+
+(defmethod execute ((query double-l-one-check))
+  (let ((grammar (get-grammar (query-grammar query))))
+    (multiple-value-bind (pred conflicts) (is-double-l-one? grammar)
+      (make-instance 'double-l-one-check-response
+                     :double-l-one-check pred
+                     :conflicts conflicts))))
+
+(defclass conflict ()
+  ((rule :accessor conflict-rule
+         :initarg :rule
+         :type rule)
+   (alt1 :accessor conflict-alt1
+         :initarg :alt1
+         :type alternative)
+   (alt2 :accessor conflict-alt2
+         :initarg :alt2
+         :type alternative)
+   (set :accessor conflict-set
+        :initarg :set
+        :type list)))
+
+
+(declaim (ftype (function (grammar) (values boolean list)) is-double-l-one?))
+(defun is-double-l-one? (grammar)
+  (let ((conflicts))
+    (traverse
+     grammar
+     (lambda (rule)
+       (when (and (typep rule 'rule)
+                  (not (typep rule '(or alias token))))
+         (let ((alt/first-set-alist))
+           (traverse
+            rule
+            (lambda (alt)
+              (when (typep alt 'alternative)
+                (push (cons alt (first-set alt grammar)) alt/first-set-alist))))
+           (when (> (length alt/first-set-alist) 1)
+             (setf alt/first-set-alist (reverse alt/first-set-alist))
+             (loop
+                for i from 0 to (- (length alt/first-set-alist) 2)
+                for alt/set1 = (nth i alt/first-set-alist)
+                for alt/set2 = (nth (1+ i) alt/first-set-alist)
+                do (awhen (intersection (cdr alt/set1) (cdr alt/set2) :test #'grammar-symbol-equal)
+                     (push (make-instance 'conflict
+                                          :rule rule
+                                          :alt1 (car alt/set1)
+                                          :alt2 (car alt/set2)
+                                          :set it)
+                           conflicts))))))))
+    (values (null conflicts) conflicts)))
