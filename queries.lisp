@@ -100,14 +100,7 @@
 (defmethod execute ((query draw-grammar))
   (let ((grammar (get-grammar (query-grammar query)))
         (graph (cl-graph:make-graph 'cl-graph:graph-container :default-edge-type :directed)))
-    (labels ((%lookup (name)
-               (traverse grammar
-                         (lambda (el)
-                           (when (and (typep el 'rule)
-                                      (equal (rule-name el) name))
-                             (return-from %lookup el))))
-               nil)
-             (%name (el)
+    (labels ((%name (el)
                (etypecase el
                  (rule (rule-name el))
                  (grammar-symbol (grammar-symbol-value el))))
@@ -123,7 +116,7 @@
                         (traverse rule (lambda (el)
                                          (typecase el
                                            (non-terminal
-                                            (let ((next-rule (%lookup (grammar-symbol-value el))))
+                                            (let ((next-rule (lookup (grammar-symbol-value el) grammar)))
                                               (when next-rule
                                                 (%draw-children next-rule))
                                               (cl-graph:add-edge-between-vertexes
@@ -154,3 +147,72 @@
                                                                             +predefined-tokens+ :test #'equal)
                                                                     "black"
                                                                     "red"))))))))))))
+
+
+(declaim (ftype (function (string grammar &optional symbol) t) lookup))
+(defun lookup (name grammar &optional (type 'rule))
+  (traverse grammar
+            (lambda (el)
+              (when (and (typep el type)
+                         (equal (rule-name el) name))
+                (return-from lookup el))))
+  nil)
+
+;;; ----------------------------------------------------------------------------
+;;; First/follow sets queries
+;;; ----------------------------------------------------------------------------
+
+(defclass rule-first-set (query)
+  ((rule-name :accessor query-rule-name
+              :initarg :rule-name
+              :type string)))
+
+(defclass rule-first-set-response (response)
+  ((rule-first-set :accessor response-rule-first-set
+                   :initarg :rule-first-set
+                   :type list)))
+
+
+(defmethod execute ((query rule-first-set))
+  (let ((grammar (get-grammar (query-grammar query))))
+    (make-instance 'rule-first-set-response
+                   :rule-first-set (first-set (query-rule-name query) grammar))))
+
+(defgeneric first-set (target grammar))
+
+(defmethod first-set ((target null) (grammar grammar))
+  nil)
+
+(defmethod first-set ((target string) (grammar grammar))
+  (first-set (lookup target grammar) grammar))
+
+(defmethod first-set ((rule rule) (grammar grammar))
+  (let ((empty-p t) (acc nil))
+    (when rule
+      (traverse
+       rule
+       (lambda (el)
+         (if empty-p
+             (typecase el
+               (rule-name
+                (awhen (lookup (grammar-symbol-value el) grammar)
+                  (setf empty-p (has-empty-command? it))
+                  (setf acc (union acc (first-set it grammar) :test #'grammar-symbol-equal))))
+               ((or terminal token-name range-entity set-entity)
+                (setf empty-p nil)
+                (pushnew el acc :test #'grammar-symbol-equal)))
+             (return-from first-set (values acc empty-p)))))
+      (return-from first-set (values acc empty-p)))))
+
+
+(declaim (ftype (function (rule) boolean) has-empty-command?))
+(defun has-empty-command? (rule)
+  (traverse rule
+            (lambda (el)
+              (when (or (and (typep el 'entity-with-mod-base)
+                             (or (eq (entity-mod el) #\?)
+                                 (eq (entity-mod el) #\*)))
+                        (and (typep el 'alternative)
+                             (null (alternative-entities el))))
+                (return-from has-empty-command? t))))
+  nil)

@@ -38,7 +38,7 @@
              :type list
              :initform nil)))
 
-(defclass catcher ()
+(defclass catcher (grammar-definition)
   ((args :accessor catcher-args
          :initarg :args
          :initform nil
@@ -57,12 +57,12 @@
 (defclass token (rule)
   ())
 
-(defclass mode ()
+(defclass mode (grammar-definition)
   ((mode :accessor mode
          :initarg :mode
          :type string)))
 
-(defclass command ()
+(defclass command (grammar-definition)
   ((name :accessor command-name
          :initarg :name
          :type string)
@@ -253,3 +253,27 @@
 
 (defmethod traverse ((node command) function)
   (funcall function node))
+
+
+(defgeneric grammar-symbol-equal (s1 s2))
+
+(defmethod grammar-symbol-equal ((s1 grammar-definition) (s2 grammar-definition))
+  nil)
+
+(defmethod grammar-symbol-equal ((s1 grammar-symbol) (s2 grammar-symbol))
+  (and (eq (type-of s1) (type-of s2))
+       (equal (grammar-symbol-value s1)
+              (grammar-symbol-value s2))))
+
+(defmethod grammar-symbol-equal ((s1 set-entity) (s2 set-entity))
+  (equal (entity-set s1)
+         (entity-set s2)))
+
+(defmethod grammar-symbol-equal ((s1 range-entity) (s2 range-entity))
+  (and (eq (range-from s1)
+           (range-from s2))
+       (eq (range-to s1)
+           (range-to s2))))
+
+(defmethod grammar-symbol-equal ((s1 Wildcard-entity) (s2 Wildcard-entity))
+  t)

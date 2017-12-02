@@ -616,3 +616,30 @@ graph [];
 52->55 [];
 }")
                 response))
+
+
+(define-query-test first-set.1
+    ((make-instance 'rule-first-set
+                    :grammar *abnf-grammar*
+                    :rule-name "rule_"))
+    (response)
+  (object-equal (make-instance 'rule-first-set-response
+                               :rule-first-set (list (make-instance 'token-name
+                                                                    :value "ID")))
+                response))
+
+(define-query-test first-set.2
+    ((make-instance 'rule-first-set
+                    :grammar *abnf-grammar*
+                    :rule-name "ID"))
+    (response)
+  (object-equal (make-instance
+                 'rule-first-set-response
+                 :rule-first-set
+                 (list (make-instance
+                        'range-entity
+                        :from "a"
+                        :to "z"
+                        :set '("a" "b" "c" "d" "e" "f" "g" "h" "i" "j" "k" "l" "m" "n" "o" "p" "q" "r" "s" "t" "u" "v" "w" "x" "y" "z")
+                        :mod nil)))
+                response))
