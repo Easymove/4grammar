@@ -643,3 +643,38 @@ graph [];
                         :set '("a" "b" "c" "d" "e" "f" "g" "h" "i" "j" "k" "l" "m" "n" "o" "p" "q" "r" "s" "t" "u" "v" "w" "x" "y" "z")
                         :mod nil)))
                 response))
+
+(define-query-test follow-set.1
+    ((make-instance 'rule-follow-set
+                    :grammar *abnf-grammar*
+                    :rule-name "rule_"))
+    (response)
+  (object-equal (make-instance 'rule-follow-set-response
+                               :rule-follow-set (list (make-instance 'token-name
+                                                                     :value "ID")
+                                                      (make-instance 'token-name
+                                                                     :value "EOF")))
+                response))
+
+(define-query-test follow-set.2
+    ((make-instance 'rule-follow-set
+                    :grammar *abnf-grammar*
+                    :rule-name "ID"))
+    (response)
+  (object-equal (make-instance 'rule-follow-set-response
+                               :rule-follow-set (list (make-instance 'token-name
+                                                                     :value "INT")
+                                                      (make-instance 'terminal
+                                                                     :value "/")
+                                                      (make-instance 'terminal
+                                                                     :value "]")
+                                                      (make-instance 'terminal
+                                                                     :value ")")
+                                                      (make-instance 'token-name
+                                                                     :value "ID")
+                                                      (make-instance 'token-name
+                                                                     :value "EOF")
+                                                      (make-instance 'terminal
+                                                                     :value "=")))
+                response))
+

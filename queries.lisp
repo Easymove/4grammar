@@ -186,28 +186,48 @@
 (defmethod first-set ((target string) (grammar grammar))
   (first-set (lookup target grammar) grammar))
 
-(defmethod first-set ((rule rule) (grammar grammar))
+(defun first-set-for-terminal (el)
+  (list el))
+
+(defmethod first-set ((target terminal) (grammar grammar))
+  (first-set-for-terminal target))
+
+(defmethod first-set ((target token-name) (grammar grammar))
+  (first-set-for-terminal target))
+
+(defmethod first-set ((target range-entity) (grammar grammar))
+  (first-set-for-terminal target))
+
+(defmethod first-set ((target set-entity) (grammar grammar))
+  (first-set-for-terminal target))
+
+(defmethod first-set ((target rule-name) (grammar grammar))
+  (let ((name (grammar-symbol-value target)))
+    (values (first-set name grammar) (has-empty-command? name grammar))))
+
+(defmethod first-set ((target grammar-definition) (grammar grammar))
   (let ((empty-p t) (acc nil))
-    (when rule
-      (traverse
-       rule
-       (lambda (el)
+    (traverse
+     target
+     (lambda (el)
+       (unless (eq el target)
          (if empty-p
-             (typecase el
-               (rule-name
-                (awhen (lookup (grammar-symbol-value el) grammar)
-                  (setf empty-p (has-empty-command? it))
-                  (setf acc (union acc (first-set it grammar) :test #'grammar-symbol-equal))))
-               ((or terminal token-name range-entity set-entity)
-                (setf empty-p nil)
-                (pushnew el acc :test #'grammar-symbol-equal)))
-             (return-from first-set (values acc empty-p)))))
-      (return-from first-set (values acc empty-p)))))
+             (multiple-value-bind (res has-eps?) (first-set el grammar)
+               (setf empty-p has-eps?)
+               (setf acc (union acc res :test #'grammar-symbol-equal)))
+             (return-from first-set (values acc empty-p))))))))
 
 
-(declaim (ftype (function (rule) boolean) has-empty-command?))
-(defun has-empty-command? (rule)
-  (traverse rule
+(defgeneric has-empty-command? (target grammar))
+
+(defmethod has-empty-command? ((target null) (grammar grammar))
+  nil)
+
+(defmethod has-empty-command? ((target string) (grammar grammar))
+  (has-empty-command? (lookup target grammar) grammar))
+
+(defmethod has-empty-command? ((target rule) (grammar grammar))
+  (traverse target
             (lambda (el)
               (when (or (and (typep el 'entity-with-mod-base)
                              (or (eq (entity-mod el) #\?)
@@ -216,3 +236,71 @@
                              (null (alternative-entities el))))
                 (return-from has-empty-command? t))))
   nil)
+
+
+
+(defclass rule-follow-set (query)
+  ((rule-name :accessor query-rule-name
+              :initarg :rule-name
+              :type string)))
+
+(defclass rule-follow-set-response (response)
+  ((rule-follow-set :accessor response-rule-follow-set
+                    :initarg :rule-follow-set
+                    :type list)))
+
+
+(defmethod execute ((query rule-follow-set))
+  (let ((grammar (get-grammar (query-grammar query))))
+    (make-instance 'rule-follow-set-response
+                   :rule-follow-set (follow-set (query-rule-name query) grammar))))
+
+(defvar *found* nil)
+
+(defgeneric follow-set (target grammar &optional visited))
+
+(defmethod follow-set ((target null) (grammar grammar) &optional (visited (make-hash-table)))
+  (declare (ignore visited))
+  nil)
+
+(defmethod follow-set ((target string) (grammar grammar) &optional (visited (make-hash-table)))
+  (follow-set (lookup target grammar) grammar visited))
+
+(defmethod follow-set ((target grammar-symbol) (grammar grammar) &optional (visited (make-hash-table)))
+  (follow-set (grammar-symbol-value target) grammar visited))
+
+;;; TODO: Optimize me somehow
+;;; TODO: Also take care of complex entities repetition
+(defmethod follow-set ((target rule) (grammar grammar) &optional (visited (make-hash-table)))
+  (let ((acc))
+    (unless (gethash target visited)
+      (setf (gethash target visited) t)
+      (traverse
+       grammar
+       (lambda (rule)
+         (when (typep rule 'rule)
+           (traverse
+            rule
+            (lambda (alt)
+              (when (typep alt 'alternative)
+                (let ((found))
+                  (traverse
+                   alt
+                   (lambda (el)
+                     (when (typep el 'simple-entity)
+                       (let ((sym (entity-value el)))
+                         (if found
+                             (progn
+                               (setf acc (union acc (first-set sym grammar)
+                                                :test #'grammar-symbol-equal))
+                               (setf found (has-empty-command? (grammar-symbol-value sym) grammar)))
+                             (when (equal (grammar-symbol-value sym)
+                                          (rule-name target))
+                               (when (or (eq (entity-mod el) #\+)
+                                         (eq (entity-mod el) #\*))
+                                 (setf acc (union acc (first-set sym grammar)
+                                                  :test #'grammar-symbol-equal)))
+                               (setf acc (union acc (follow-set rule grammar visited)
+                                                :test #'grammar-symbol-equal))
+                               (setf found t)))))))))))))))
+    acc))
